@@ -1,0 +1,38 @@
+---
+title: "Exploratory"
+author: "Andrea Becsek"
+date: "7 November 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load libraries
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(maps)
+```
+
+Load data
+```{r}
+setwd("/home/work/Documents/Project")
+df <- read_csv('database.csv')
+df_filt <- df %>%
+  filter(!is.na(Time))
+```
+
+Count missing values
+```{r}
+round(100*colMeans(is.na(df)),2)
+```
+
+
+```{r}
+
+```
+
+
