@@ -1,5 +1,5 @@
 ---
-title: "Exploratory"
+title: "Exploratory Analysis"
 author: "Andrea Becsek"
 date: "7 November 2019"
 output: html_document
@@ -7,32 +7,339 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/home/work/Documents/Project/stats-computing-1")
 ```
 
 Load libraries
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(dplyr)
 library(readr)
 library(ggplot2)
 library(maps)
+library(reshape2)
+library(tidyr)
+library(purrr)
+library(lubridate)
+library(maptools)
+library(plotly)
 ```
 
 Load data
 ```{r}
-setwd("/home/work/Documents/Project")
-df <- read_csv('database.csv')
-df_filt <- df %>%
+df <- read_csv('./data/database.csv')
+
+df_filtered <- df %>%
   filter(!is.na(Time))
+df_filtered <- as.data.frame(df_filtered)
 ```
 
-Count missing values
+Replace column names
 ```{r}
-round(100*colMeans(is.na(df)),2)
+colnames(df_filtered) <- c('date', 'time', 'lat', 'lon', 'type', 'depth', 'depth_er', 'depth_ss', 'magnit', 'magnit_type', 'magnit_er', 'magnit_ss', 'azim', 'horiz_dist', 'horiz_er', 'rms', 'id', 'source', 'loc_source', 'magnit_source', 'status')
+```
+
+Convert date to year/month/day format
+```{r}
+df_filtered <- df_filtered %>% 
+  mutate(date = as_date(parse_date_time(date, orders=c('mdy'))))
+
+# add columns for year, month and day
+df_filtered <- df_filtered %>% 
+  mutate(year = year(date), month = factor(month(date)), day = factor(day(date)))
 ```
 
 
+## Dealing with missing values
+Percentage of missing values in each column
+```{r}
+round(100*colMeans(is.na(df_filtered)),2)
+```
+
+Drop columns
+```{r}
+df_filtered <-df_filtered %>% 
+  select(-c(depth_er,magnit_er,azim,horiz_er,
+            horiz_dist,magnit_type,magnit_ss,depth_ss,id))
+```
+
+Replace RMS missing values with the mean
+```{r}
+df_filtered <- df_filtered %>% 
+  mutate(rms=replace(rms, is.na(rms), mean(rms)))
+```
+
+Missing value count
+```{r}
+colSums(is.na(df_filtered))
+```
+
+
+Count number of unique values in each column
+```{r}
+rapply(df_filtered, function(x) length(unique(x)))
+```
+
+## Dealing with categorical variables
+```{r}
+unique(df_filtered$type)
+unique(df_filtered$status)
+unique(df_filtered$magnit_source)
+unique(df_filtered$loc_source)
+unique(df_filtered$source)
+```
+
+Store categorical variables as factors
+```{r}
+categ_var <- c('type', 'status', 'magnit_source', 'loc_source', 'source')
+df_filtered[,categ_var] <- lapply(df_filtered[,categ_var],factor)
+```
+
+Count observations for each type
+```{r}
+df_filtered %>% 
+  group_by(type) %>% 
+  summarise(no_rows = length(type))
+```
+
+There are very few explosions and rock bursts so we can remove those observations.
+
+```{r}
+df_filtered <- df_filtered %>% 
+  filter(grepl('Earthquake|Nuclear', type))
+```
+
+
+We want the variables to contribute equally to the analysis, so we need to make sure that they are on the same scale. So we normalize magnitude, depth and rms
+
+```{r}
+normalize <- function(x){
+    return((x - min(x)) / (max(x) - min(x)))
+}
+df_norm <- df_filtered
+df_norm[c('magnit','depth','rms')] <- lapply(df_filtered[c('magnit','depth','rms')], normalize)
+```
+
+Magnitude classes
+```{r}
+df_filtered <- df_filtered %>% 
+  mutate(class = factor(cut(
+     df_filtered$magnit,
+     breaks = c(5, 6, 7, 8, Inf),
+     labels = c("moderate", "strong", "major", "great"),
+     right  = FALSE)
+     )
+)
+```
+
+## Some plots
+Histograms for numeric variables
+```{r}
+df_filtered %>% 
+  keep(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value))+
+  facet_wrap(~key, scales='free')+
+  geom_histogram()
+```
+
+Histogram of earthquakes
+```{r}
+df_filtered %>% 
+  ggplot(aes(x=magnit))+
+  geom_histogram(binwidth=0.5)
+```
+
+Count earthquakes for each bin
+```{r}
+df_filtered %>% 
+  count(cut_width(magnit,0.5))
+```
+
+
+Number of earthquakes for each magnitude class
+```{r}
+df_filtered %>% 
+  group_by(class) %>% 
+  summarise(events = n()) %>% 
+  ggplot(aes(x = class, y = events))+
+  geom_bar(stat = 'identity')
+```
+
+Lets zoom in and focus only on moderate and strong earthquakes
+```{r}
+df_filtered %>% 
+  filter(magnit < 7) %>% 
+  ggplot(aes(x=magnit))+
+  geom_histogram(binwidth = 0.1)
+```
+
+```{r}
+df_filtered %>% 
+  ggplot(aes(x=depth,colour=class, y=..density..))+
+  geom_freqpoly(binwidth=20)
+```
+
+
+Plot of earthquakes by type
+
+```{r}
+ggplot(data = df_filtered) + 
+  borders('world', colour='gray50',fill='gray50') +
+  geom_point(aes(x=lon, y=lat), alpha = 0.5, size = 1, color = 'blue') +
+  facet_wrap(~class)
+```
+
+Plot of earthquakes by magnitude
+```{r}
+ggplot(data = df_filtered) + 
+  borders('world', colour='gray50',fill='gray50') +
+  geom_point(aes(x=lon, y=lat, color = class), alpha = 0.3, size = 1)+
+  scale_colour_manual(values = c("yellow","red", "blue", "black"))
+```
+
+Plot magnitude by erruption type
+```{r}
+ggplot(df_filtered, aes(x = magnit)) +
+  geom_density(aes(fill = type), alpha = 0.4)
+```
+
+
+# ```{r}
+# ggplot(df_filtered, aes(x = depth, y = magnit)) +
+#   geom_point(aes(colour = type, shape = type), alpha = 0.4)
+# ```
+
+Plot number of earthquakes per year
+```{r}
+df_filtered %>% 
+  filter(type == 'Earthquake') %>% 
+  group_by(year) %>% 
+  summarise(events = n()) %>% 
+  ggplot(aes(x = year, y = events))+
+  geom_bar(stat = 'identity') +
+  theme_minimal()
+```
+
+Plot average depth based on year
+```{r}
+df_filtered %>% 
+  filter(type == 'Earthquake') %>% 
+  group_by(year) %>% 
+  summarise(mean_depth = mean(depth)) %>% 
+  ggplot(aes(x = year, y = mean_depth))+
+  geom_bar(stat = 'identity') +
+  theme_minimal()
+```
+
+Plot average number of earthquakes for every month
+```{r}
+df_filtered %>% 
+  filter(type == 'Earthquake') %>% 
+  group_by(month) %>% 
+  summarise(events = n()) %>% 
+  ggplot(aes(x = month, y = events))+
+  geom_bar(stat = 'identity') +
+  theme_minimal()
+```
+
+Plot average depth of earthquake based on month
+```{r}
+df_filtered %>% 
+  # filter(type == 'Earthquake') %>% 
+  group_by(month) %>% 
+  summarise(mean_depth = mean(depth)) %>% 
+  ggplot(aes(x = month, y = mean_depth))+
+  geom_bar(stat = 'identity') +
+  theme_minimal()
+```
+
+
+
+Animation of earthquakes across years
+```{r}
+df_filtered %>% 
+  plot_ly(
+    x = ~lon,
+    y = ~lat,
+    frame = ~year,
+    type = 'scatter',
+    mode = 'markers',
+    alpha = 0.3
+) %>% 
+  layout(xaxis = list(range = c(-200, 200)),
+         yaxis = list(range = c(-100, 100)))
+```
+
+Magnitude against depth
+```{r}
+df_filtered %>% 
+  ggplot(aes(x=depth,y=magnit))+
+  geom_point(alpha=0.2)
+```
+
+## Modelling
+
+### 
+```{r}
+cubic_lm <- lm(df_filtered$magnit~df_filtered$depth+I(df_filtered$depth^2)+I(df_filtered$depth^3))
+plot(df_filtered$magnit,cubic_lm$fitted.values)
+plot(cubic_lm$residuals, cubic_lm$fitted.values)
+
+df_filtered %>% 
+  ggplot(aes(x=depth,y=magnit))+
+  geom_point(alpha=0.2)
+  
+cubic <- function(x){
+  coef <- cubic_lm$coefficients
+  return(coef[1]+x*coef[2]+x**2*coef[3]+x**3*coef[4])
+}
+
+df_filtered %>% 
+  ggplot(aes(x=depth,y=magnit))+
+  geom_point()+
+  stat_function(fun = cubic, color='red')
+```
+
+RBF function
+```{r}
+pairwise_dist_median <- function(x){
+  n <- dim(x)[2]
+  total_iterations = 0
+  dist <- vector(mode = "numeric", (n-1)*(n-2))
+  for(i in 1:(n-1)){
+    for(j in (i+1):n){
+      print(i)
+      print(j)
+      print("-")
+      total_iterations <- total_iterations + 1
+      dist[total_iterations] <- norm(x[i,]-x[j,], "2")^2
+    }
+  }
+  return(median((dist)))
+}
+
+rbf <- function(centroid,sigma){
+  rbf_in <- function(x) {
+    phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
+    return(phi)
+  }
+  return(rbf_in)
+}
+```
+
+We want to use the gaussian rbf as a feature transformation on both data points. 
 ```{r}
 
+do_rbf_reg <- function(X, y, n) {
+  num_cols <- dim(X)[2]
+  centroid_indices <- sample(1:num_cols, n)
+  centroids <- X[,centroid_indices]
+  sigma <- pairwise_dist(X)
+  rbfw <- rbf(c)
+  
+  
+}
+rblm <- lm(data=df_filtered, magnit~I(rbf()))
 ```
 
 
