@@ -325,20 +325,30 @@ rbf <- function(centroid,sigma){
   }
   return(rbf_in)
 }
+
+rbf2 <- function(x, centroid, sigma){
+  phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
+  return(phi)
+}
 ```
 
 We want to use the gaussian rbf as a feature transformation on both data points. 
 ```{r}
 
-do_rbf_reg <- function(X, y, n) {
+do_rbf_reg <- function(X, n) {
   num_cols <- dim(X)[2]
   centroid_indices <- sample(1:num_cols, n)
   centroids <- X[,centroid_indices]
-  sigma <- pairwise_dist(X)
-  rbfw <- rbf(c)
-  
-  
+
+  for (i in centroids) {
+    apply(X, 2, rbf2())
+  }
+  list_rbf <- apply(centroids, 2, rbf)
+  rbf_final <- function(x) invoke_map(list_rbf, x)
+  transformed_X <-apply(X, 2, rbf_final)
+  return(transformed_X)
 }
+
 rblm <- lm(data=df_filtered, magnit~I(rbf()))
 ```
 
