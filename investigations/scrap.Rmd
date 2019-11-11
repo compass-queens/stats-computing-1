@@ -26,7 +26,7 @@ library(plotly)
 
 Load data
 ```{r}
-df <- read_csv('./data/database.csv')
+df <- read_csv('../data/database.csv')
 
 df_filtered <- df %>%
   filter(!is.na(Time))
@@ -308,9 +308,6 @@ pairwise_dist_median <- function(x){
   dist <- vector(mode = "numeric", (n-1)*(n-2))
   for(i in 1:(n-1)){
     for(j in (i+1):n){
-      print(i)
-      print(j)
-      print("-")
       total_iterations <- total_iterations + 1
       dist[total_iterations] <- norm(x[i,]-x[j,], "2")^2
     }
@@ -326,7 +323,7 @@ rbf <- function(centroid,sigma){
   return(rbf_in)
 }
 
-rbf2 <- function(x, centroid, sigma){
+rbf2 <- function(x, centroid, sigma){k
   phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
   return(phi)
 }
@@ -335,21 +332,26 @@ rbf2 <- function(x, centroid, sigma){
 We want to use the gaussian rbf as a feature transformation on both data points. 
 ```{r}
 
-do_rbf_reg <- function(X, n) {
+create_data_matrix <- function(X, n) {
   num_cols <- dim(X)[2]
+  #todo fix n = 1
   centroid_indices <- sample(1:num_cols, n)
   centroids <- X[,centroid_indices]
-
-  for (i in centroids) {
-    apply(X, 2, rbf2())
+  sigma <- pairwise_dist_median(X)
+   
+  big_phi_x <- matrix(, nrow=n, ncol=num_cols)
+  i <- 0
+  for(i in 1:n) {
+    print(centroid)
+    phi_i <- rbf(centroid, sigma)
+    phi_i_x <- apply(X, 2, phi_i)
+    big_phi_x[i,] <-  phi_i_x
+    i <- i + 1
   }
-  list_rbf <- apply(centroids, 2, rbf)
-  rbf_final <- function(x) invoke_map(list_rbf, x)
-  transformed_X <-apply(X, 2, rbf_final)
-  return(transformed_X)
+  
+  return(big_phi_x)
 }
 
-rblm <- lm(data=df_filtered, magnit~I(rbf()))
 ```
 
 
