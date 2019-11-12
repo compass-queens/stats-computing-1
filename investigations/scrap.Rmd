@@ -300,7 +300,7 @@ df_filtered %>%
   stat_function(fun = cubic, color='red')
 ```
 
-RBF function
+Median of pairwise distances
 ```{r}
 pairwise_dist_median <- function(x){
   n <- dim(x)[2]
@@ -312,9 +312,14 @@ pairwise_dist_median <- function(x){
       dist[total_iterations] <- norm(x[i,]-x[j,], "2")^2
     }
   }
-  return(median((dist)))
+  return(median(dist))
 }
+```
 
+```{r}
+
+# input: centroid and sigma
+# output: function phi_i(x)
 rbf <- function(centroid,sigma){
   rbf_in <- function(x) {
     phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
@@ -323,10 +328,10 @@ rbf <- function(centroid,sigma){
   return(rbf_in)
 }
 
-rbf2 <- function(x, centroid, sigma){k
-  phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
-  return(phi)
-}
+# rbf2 <- function(x, centroid, sigma){
+#   phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
+#   return(phi)
+# }
 ```
 
 We want to use the gaussian rbf as a feature transformation on both data points. 
@@ -354,4 +359,21 @@ create_data_matrix <- function(X, n) {
 
 ```
 
+
+```{r}
+phi <- function(X,n){
+  phi <- rep(0,3)
+  num_cols <- dim(X)[2]
+  centroid_indices <- sample(1:num_cols, n)
+  print(centroid_indices)
+  sigma <- pairwise_dist_median(X)
+  for(i in centroid_indices){
+    centroid <- X[,i]
+    norm_squared <- apply(X, 2, function(x) norm(x-centroid,"2")^2)
+    phi_i <- exp(-norm_squared/(sigma*sigma))
+    phi <- cbind(phi, phi_i)
+  }
+    return(phi[,-1])
+}
+```
 
