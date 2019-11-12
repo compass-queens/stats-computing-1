@@ -279,7 +279,7 @@ df_filtered %>%
 
 ## Modelling
 
-### 
+### Polynomial regression (only cubic)
 ```{r}
 cubic_lm <- lm(df_filtered$magnit~df_filtered$depth+I(df_filtered$depth^2)+I(df_filtered$depth^3))
 plot(df_filtered$magnit,cubic_lm$fitted.values)
@@ -317,9 +317,6 @@ pairwise_dist_median <- function(x){
 ```
 
 ```{r}
-
-# input: centroid and sigma
-# output: function phi_i(x)
 rbf <- function(centroid,sigma){
   rbf_in <- function(x) {
     phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
@@ -327,53 +324,28 @@ rbf <- function(centroid,sigma){
   }
   return(rbf_in)
 }
-
-# rbf2 <- function(x, centroid, sigma){
-#   phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
-#   return(phi)
-# }
 ```
 
 We want to use the gaussian rbf as a feature transformation on both data points. 
 ```{r}
-
 create_data_matrix <- function(X, n) {
   num_cols <- dim(X)[2]
   #todo fix n = 1
   centroid_indices <- sample(1:num_cols, n)
-  centroids <- X[,centroid_indices]
+  centroids <- X[,centroid_indices, drop = FALSE]
   sigma <- pairwise_dist_median(X)
    
   big_phi_x <- matrix(, nrow=n, ncol=num_cols)
   i <- 0
   for(i in 1:n) {
+    centroid <- centroids[,i]
     print(centroid)
     phi_i <- rbf(centroid, sigma)
     phi_i_x <- apply(X, 2, phi_i)
     big_phi_x[i,] <-  phi_i_x
     i <- i + 1
   }
-  
   return(big_phi_x)
-}
-
-```
-
-
-```{r}
-phi <- function(X,n){
-  phi <- rep(0,3)
-  num_cols <- dim(X)[2]
-  centroid_indices <- sample(1:num_cols, n)
-  print(centroid_indices)
-  sigma <- pairwise_dist_median(X)
-  for(i in centroid_indices){
-    centroid <- X[,i]
-    norm_squared <- apply(X, 2, function(x) norm(x-centroid,"2")^2)
-    phi_i <- exp(-norm_squared/(sigma*sigma))
-    phi <- cbind(phi, phi_i)
-  }
-    return(phi[,-1])
 }
 ```
 
