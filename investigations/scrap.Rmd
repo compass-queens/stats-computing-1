@@ -26,7 +26,7 @@ library(plotly)
 
 Load data
 ```{r}
-df <- read_csv('../data/database.csv')
+df <- read_csv('./data/database.csv')
 
 df_filtered <- df %>%
   filter(!is.na(Time))
@@ -253,8 +253,6 @@ df_filtered %>%
   theme_minimal()
 ```
 
-
-
 Animation of earthquakes across years
 ```{r}
 df_filtered %>% 
@@ -300,26 +298,26 @@ df_filtered %>%
   stat_function(fun = cubic, color='red')
 ```
 
-Median of pairwise distances
+Median of pairwise distances rows = observations
 ```{r}
 pairwise_dist_median <- function(x){
-  n <- dim(x)[2]
+  n <- dim(x)[1]
   total_iterations = 0
   dist <- vector(mode = "numeric", (n-1)*(n-2))
   for(i in 1:(n-1)){
     for(j in (i+1):n){
       total_iterations <- total_iterations + 1
-      dist[total_iterations] <- norm(x[i,]-x[j,], "2")^2
+      dist[total_iterations] <- norm(x[i,]-x[j,], "2")
     }
   }
-  return(median(dist))
+  return(list(dist, median(dist)))
 }
 ```
 
 ```{r}
 rbf <- function(centroid,sigma){
   rbf_in <- function(x) {
-    phi <- exp(-norm(x-centroid, "2")^2/(sigma*sigma))
+    phi <- exp(-(norm(x-centroid, "2")^2/(2 * sigma*sigma)))
     return(phi)
   }
   return(rbf_in)
@@ -330,22 +328,66 @@ We want to use the gaussian rbf as a feature transformation on both data points.
 ```{r}
 create_data_matrix <- function(X, n) {
   num_cols <- dim(X)[2]
+  num_rows <- dim(X)[1]
   #todo fix n = 1
-  centroid_indices <- sample(1:num_cols, n)
-  centroids <- X[,centroid_indices, drop = FALSE]
-  sigma <- pairwise_dist_median(X)
+  centroid_indices <- sample(1:num_rows, n)
+  centroids <- X[centroid_indices,, drop = FALSE]
+  sigma <- 100 # TODO: pairwise distance not working find alternative
+  print(sigma)
    
-  big_phi_x <- matrix(, nrow=n, ncol=num_cols)
+  big_phi_x <- matrix(, nrow=num_rows, ncol=n)
   i <- 0
   for(i in 1:n) {
-    centroid <- centroids[,i]
-    print(centroid)
+    centroid <- centroids[i,]
     phi_i <- rbf(centroid, sigma)
-    phi_i_x <- apply(X, 2, phi_i)
-    big_phi_x[i,] <-  phi_i_x
+    phi_i_x <- apply(X, 1, phi_i)
+    big_phi_x[,i] <-  phi_i_x
     i <- i + 1
   }
   return(big_phi_x)
 }
 ```
+
+Parameter estimate
+```{r}
+W_LS <- function(X, y){
+  result <- solve((t(X) %*% X), t(X) %*% y)
+  return(result)
+}
+```
+
+
+
+Check Radial Basis
+```{r}
+num <- 5000
+df_filtered_reduced <- df_filtered[1:num, ]
+data_matrix <- create_data_matrix(matrix(df_filtered_reduced$depth), 5)
+data_matrix <- cbind(rep(1, num), data_matrix)
+w_param <- W_LS(data_matrix, df_filtered_reduced$magnit)
+```
+
+```{r}
+
+yvals <- data_matrix %*% w_param
+xvals <- df_filtered_reduced$depth
+mynewdf <- data.frame(x=xvals, y=yvals, z=df_filtered_reduced$magnit)
+ggplot(data=mynewdf, aes(x=x,y=y)) +
+  geom_line() + 
+  geom_point(aes(x=x, y=z), alpha=0.1)
+
+```
+
+
+
+```{r}
+y_hat <- data_matrix %*% w_param
+resid <- (y_hat-df_filtered_reduced$magnit)^2
+
+df_plot <- cbind(df_filtered_reduced$magnit,df_filtered_reduced$depth,resid,y_hat)
+colnames(df_plot) <- c("y","x","resid","fitted")
+
+ggplot(df_plot,aes(x,y))
+```
+
 
