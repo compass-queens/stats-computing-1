@@ -182,6 +182,8 @@ ggplot(data=df_final, aes(x=t, y=value, color=variable)) +
   guides(color=guide_legend(override.aes = list(linetype=c("solid", "solid", "solid", rep("blank", 2)))))
 ```
 
+## Non-Probabilistic Classifiers
+* SMV to model tectonic boundaries?
 
 
 
