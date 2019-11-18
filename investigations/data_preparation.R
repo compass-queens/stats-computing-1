@@ -1,7 +1,7 @@
 # This file contains modular code to prepare dataset for our analyses
-library(readr)      # to read csv file
-library(dplyr)      # pipes and data manipulation
-library(lubridate)  # to change date format
+suppressPackageStartupMessages(library(readr))      # to read csv file
+suppressPackageStartupMessages(library(dplyr))      # pipes and data manipulation
+suppressPackageStartupMessages(library(lubridate))  # to change date format
 
 # This function can be improved, maybe could leverage some OOP?
 get_data <- function(drop_cols=TRUE, rms_mean=TRUE, rm.types=TRUE, normalize=TRUE){
@@ -44,12 +44,6 @@ get_data <- function(drop_cols=TRUE, rms_mean=TRUE, rm.types=TRUE, normalize=TRU
     df <- df %>% filter(grepl('Earthquake|Nuclear', type)) 
   }
   
-  # Normalize Magnitude, Depth and RMS
-  normalize <- function(x){
-    return((x - min(x)) / (max(x) - min(x)))
-  }
-  df[c('magnit','depth','rms')] <- lapply(df[c('magnit','depth','rms')], normalize)
-  
   # Divide the range of magniture into 4 categories
   df <- df %>% 
     mutate(class = factor(cut(
@@ -57,8 +51,16 @@ get_data <- function(drop_cols=TRUE, rms_mean=TRUE, rm.types=TRUE, normalize=TRU
       breaks = c(5, 6, 7, 8, Inf),
       labels = c("moderate", "strong", "major", "great"),
       right  = FALSE)
-      )
     )
+    )
+  
+  # Normalize Magnitude, Depth and RMS
+  normalize <- function(x){
+    return((x - min(x)) / (max(x) - min(x)))
+  }
+  df[c('magnit','depth','rms')] <- lapply(df[c('magnit','depth','rms')], normalize)
+  
+
   
   return(df)
 }
