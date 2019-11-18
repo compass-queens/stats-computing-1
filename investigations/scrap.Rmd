@@ -64,7 +64,7 @@ df_filtered <-df_filtered %>%
 Replace RMS missing values with the mean
 ```{r}
 df_filtered <- df_filtered %>% 
-  mutate(rms=replace(rms, is.na(rms), mean(rms)))
+  mutate(rms=replace(rms, is.na(rms), mean(rms, na.rm=TRUE)))
 ```
 
 Missing value count
