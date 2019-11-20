@@ -90,13 +90,17 @@ $\\newcommand{\\var}{\\mathrm{Var}}$
 \newcommand{\kl}[2]{\text{KL}(#1\,\,||\,\,#2)}
 \newcommand{\logit}[1]{\log\left(\frac{#1}{1-#1}\right)}
 \newcommand{\elbo}[1]{\text{elbo}(#1)}
+\newcommand{\hX}{\widehat{X}}
 \newcommand{\eval}{\biggr\rvert}
 \newcommand{\normal}{\mathcal{N}}
+\newcommand{\vk}{\vect{k}}
+\newcommand{\vK}{\vect{K}}
 \newcommand{\class}{\mathcal{C}}
 \newcommand{\infor}{\mathcal{I}}
 \newcommand{\variance}{\text{Var}}
 \newcommand{\delement}[2]{\vx_{#1}^\top\vx_{#1} - 2\vx_{#1}^\top \vx_{#2} + \vx_{#2}^\top\vx_{#2}}
 \newcommand{\vSigma}{\vect{\Sigma}}
+\newcommand{\hvx}{\widehat{\vx}}
 \newcommand{\lp}[3]{
     \begin{equation*}
     \begin{alignat}{2}
@@ -117,27 +121,10 @@ $\\newcommand{\\var}{\\mathrm{Var}}$
 }
 \newcommand{\nrm}[1]{\parallel #1 \parallel}
 \newcommand{\dot}[2]{\vx_{#1}^\top\vx_{#2}}
+\newcommand{\dothat}[2]{\hvx_{#1}^\top\vx_{#2}}
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-<!-- ## Get data -->
-
-<!-- ```{r message=FALSE, warning=FALSE} -->
-<!-- library(ggplot2) -->
-<!-- source("data_preparation.R") -->
-<!-- df <- get_data() -->
-<!-- # Restrict to only n datapoints -->
-<!-- n = 1000 -->
-<!-- df <- df[1:n, ] -->
-<!-- ``` -->
-
-<!-- Plot the magnitude over time -->
-<!-- ```{r} -->
-<!-- ggplot(data=df, aes(x=time, y=magnit)) +  -->
-<!--   geom_point() -->
-<!-- ``` -->
-
 
 Suppose that we have a matrix $X\in\Rbb^{n\times d}$ whose rows represent one observation of $d$ features, and whose columns represent all $n$ observations of a particular feature. 
 $$
@@ -299,10 +286,175 @@ kernel_matrix <- function(X){
 kernel_matrix(X)
 ```
 
+## Making predictions
+Recall that our formula for predicting the output of a new input $\hvx$ is
+$$
+f(\hvx) = \vk(\vK + \lambda I)^{-1}\vy
+$$
+where 
+$$
+\vk:=\left(k(\hvx, \vx_1), \ldots, k(\hvx, \vx_n)\right)\in\Rbb^{1\times n}
+$$
+Now suppose that instead we get a whole bunch of testing data points
+$$
+\hX:=
+\begin{pmatrix}
+\hvx_1^\top \\
+\hvx_2^\top \\
+\vdots \\
+\hvx_m^\top
+\end{pmatrix}\in\Rbb^{m\times d}
+$$
+Then we can actually construct a vector of predictions as follows
+$$
+\begin{pmatrix}
+f(\hvx_1) \\
+f(\hvx_2) \\
+\vdots \\
+f(\hvx_m)
+\end{pmatrix}
+= 
+\begin{pmatrix}
+  \vk_1(\vK + \lambda I)^{-1}\vy \\
+  \vk_2(\vK + \lambda I)^{-1}\vy \\
+  \vdots \\
+  \vk_m(\vK + \lambda I)^{-1}\vy
+\end{pmatrix}
+=
+\begin{pmatrix}
+  \vk_1 \\
+  \vk_2 \\
+  \vdots \\
+  \vk_m
+\end{pmatrix}
+(\vK + \lambda I)^{-1}\vy=: \widetilde{\vK}(\vK + \lambda I)^{-1}\vy
+$$
+where 
+$$
+\vk_i := \left(k(\hvx_i, \vx_1), \ldots, k(\hvx_i, \vx_n)\right) \qquad \text{for  } i\in\{1, \ldots, m\}
+$$
+and
+$$
+\widetilde{\vK} := 
+\begin{pmatrix}
+  \vk_1 \\
+  \vk_2 \\
+  \vdots \\
+  \vk_m
+\end{pmatrix} \in\Rbb^{m\times n}
+$$
+with entries
+$$
+[\widetilde{\vK}]_{ij} = k(\hvx_i, \vx_j)
+$$
+In other words, we need to be able to modify our algorithm to give us the following matrix
+$$
+\widetilde{D} = 
+\begin{pmatrix}
+  \nrm{\hvx_1 - \vx_1}^2 & \nrm{\hvx_1 - \vx_2}^2 & \cdots & \nrm{\hvx_1 - \vx_n}^2\\
+  \nrm{\hvx_2 - \vx_1}^2 & \nrm{\hvx_2 - \vx_2}^2 & \cdots & \nrm{\hvx_2 - \vx_n}^2\\
+  \vdots          & \vdots                  & \ddots & \vdots \\
+  \nrm{\hvx_m - \vx_1}^2 & \nrm{\hvx_m - \vx_2}^2 & \cdots & \nrm{\hvx_m - \vx_n}^2
+\end{pmatrix}
+$$
+which leads to 
+$$
+\widetilde{D} =
+\begin{pmatrix}
+\hvx_1^\top\hvx_1 & \hvx_1^\top\hvx_1 & \cdots & \hvx_1^\top\hvx_1\\
+\hvx_2^\top\hvx_2 & \hvx_2^\top\hvx_2 & \cdots & \hvx_2^\top\hvx_2 \\
+\vdots          & \vdots          & \ddots & \vdots\\
+\hvx_n^\top\hvx_n & \hvx_n^\top\hvx_n & \cdots & \hvx_n^\top\hvx_n
+\end{pmatrix}
+-2
+\begin{pmatrix}
+  \dothat{1}{1} & \dothat{1}{2} & \cdots & \dothat{1}{n} \\
+  \dothat{2}{1} & \dothat{2}{2} & \cdots & \dothat{2}{n} \\
+  \vdots        & \vdots        & \ddots & \vdots \\
+  \dothat{n}{1} & \dothat{n}{2} & \cdots & \dothat{n}{n}
+\end{pmatrix}
++
+\begin{pmatrix}
+\dot{1}{1} & \dot{2}{2} & \cdots & \dot{n}{n} \\
+\dot{1}{1} & \dot{2}{2} & \cdots & \dot{n}{n} \\
+\vdots     & \vdots     & \ddots & \vdots \\
+\dot{1}{1} & \dot{2}{2} & \cdots & \dot{n}{n} 
+\end{pmatrix}
+$$
+Luckily, we can do this by adjusting our original `kernel_matrix` function
+```{r}
+kernel_matrix <- function(X, Y=NULL, sigmasq=NULL){
+  if (is.null(Y)){
+    Y <- X  # TODO: This might be risky for big matrices. How does R copy work? Maybe split the code into two?
+  }
+  n <- nrow(X)
+  m <- nrow(Y)
+  # Find three matrices above
+  Xnorm <- matrix(apply(X^2, 1, sum), n, m)
+  Ynorm <- matrix(apply(Y^2, 1, sum), n, m, byrow=TRUE)
+  XY <- tcrossprod(X, Y)
+  # TODO: In this case do we use median of XY? If we are using it for prediction
+  # I think sigmasq should be found only from training set, not from testing set.
+  # Therefore we should pass sigmasq as a parameter in this function, and should be calculated 
+  # beforehand.
+  if (is.null(sigmasq)) {
+    # We calculate sigmasq from training data and return it to be used for prediction
+    sigmasq <- median(XY)
+    return(list(
+        exp(-(Xnorm - 2*XY + Ynorm) / sigmasq),
+        sigmasq
+        )
+      )
+  } else {
+    return(exp(-(Xnorm - 2*XY + Ynorm) / sigmasq))
+  }
+}
+```
+
+At this point we're ready to construct a prediction function.
+```{r}
+predict <- function(Xhat, X, y, reg_coef=0){
+  # find K tilde and K
+  Kstuff <- kernel_matrix(X)
+  K <- Kstuff[[1]]
+  sigmasq <- Kstuff[[2]]
+  Ktilde <- kernel_matrix(Xhat, X, sigmasq = sigmasq)
+  # Invert K + lambda*I where lambda=reg_coef and use Ktilde*(K+lambdaI)^{-1}y
+  return(Ktilde %*% solve(K + reg_coef*diag(nrow(X))) %*% y)
+}
+```
 
 
+## Get real data and perform regression
+For now we only use depth as a feature. Also, we need one column of ones.
 
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+source("data_preparation.R")
+# Restrict to only n datapoints, use only depth
+n = 1000
+m = 200
+df <- get_data()[1:n, c("depth", "magnit")]
+X <- as.matrix(df$depth)
+y <- as.matrix(df$magnit)
+# Get predictions
+Xhat <- as.matrix(seq(0, 1, length.out=m)) #X
+yhat <- predict(Xhat, X, y, reg_coef=10)
+df_pred <- data.frame(depth=Xhat, pred=yhat)
+# Plot stuff
+ggplot(data=df, aes(x=depth, y=magnit)) +
+  geom_point(alpha=0.1) + 
+  geom_line(data=df_pred, aes(x=depth, y=pred), color='red')
+```
 
+We can see how it performs on the whole dataset
+
+```{r message=FALSE, warning=FALSE}
+all_data <- get_data()[, c("depth", "magnit")]
+ggplot(data=all_data, aes(x=depth, y=magnit)) +
+  geom_point(alpha=0.1) + 
+  geom_line(data=df_pred, aes(x=depth, y=pred), color='red')
+```
 
 
 
