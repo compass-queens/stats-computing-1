@@ -7,7 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/home/work/Documents/Project/stats-computing-1")
 ```
 
 Load libraries
@@ -26,7 +25,7 @@ library(plotly)
 
 Load data
 ```{r}
-df <- read_csv('./data/database.csv')
+df <- read_csv("../data/database.csv")
 
 df_filtered <- df %>%
   filter(!is.na(Time))
@@ -65,7 +64,7 @@ df_filtered <-df_filtered %>%
 Replace RMS missing values with the mean
 ```{r}
 df_filtered <- df_filtered %>% 
-  mutate(rms=replace(rms, is.na(rms), mean(rms)))
+  mutate(rms=replace(rms, is.na(rms), mean(rms, na.rm=TRUE)))
 ```
 
 Missing value count
