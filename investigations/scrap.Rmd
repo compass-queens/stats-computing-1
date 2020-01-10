@@ -360,9 +360,9 @@ W_LS <- function(X, y){
 
 Check Radial Basis
 ```{r}
-num <- 5000
+num <- 20000
 df_filtered_reduced <- df_filtered[1:num, ]
-data_matrix <- create_data_matrix(matrix(df_filtered_reduced$depth), 5)
+data_matrix <- create_data_matrix(matrix(df_filtered_reduced$depth), 10)
 data_matrix <- cbind(rep(1, num), data_matrix)
 w_param <- W_LS(data_matrix, df_filtered_reduced$magnit)
 ```
@@ -373,8 +373,8 @@ yvals <- data_matrix %*% w_param
 xvals <- df_filtered_reduced$depth
 mynewdf <- data.frame(x=xvals, y=yvals, z=df_filtered_reduced$magnit)
 ggplot(data=mynewdf, aes(x=x,y=y)) +
-  geom_line() + 
-  geom_point(aes(x=x, y=z), alpha=0.1)
+  geom_point(aes(x=x, y=z), alpha=0.05)+
+  geom_line(color='blue')
 
 ```
 

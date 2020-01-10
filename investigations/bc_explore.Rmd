@@ -1,0 +1,46 @@
+---
+title: "Breast Cancer Prediction"
+author: "Andrea Becsek"
+date: "2 January 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(ggcorrplot)
+```
+
+Import data
+```{r}
+data <- read.csv("../data/data.csv")
+dim(data)
+print(colnames(data))
+```
+Check for NAs
+```{r}
+data %>% 
+  summarise_all(funs(sum(is.na(.))))
+```
+Remove *id* and *X*
+```{r}
+data %<>%  
+  dplyr::select(-c(id, X))
+```
+
+Correlation plot
+```{r}
+corr <- data[,-1] %>% 
+          cor() %>% 
+           round(1)
+ggcorrplot(corr, hc.order = TRUE,colors = c("#6D9EC1", "white", "#E46726"),ggtheme = ggplot2::theme_minimal)
+```
+
+
+
