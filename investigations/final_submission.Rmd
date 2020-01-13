@@ -5,17 +5,123 @@ date: "13 January 2020"
 output: pdf_document
 ---
 
-#Description of the dataset and problem
+```{r, include=FALSE}
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+library(ggcorrplot)
+library(tidyr)
+library(readr)
+library(devtools)
+```
 
+#Description of the dataset and problem
+TODO: describe
+
+```{r}
+data <- read_csv("../data/data.csv")
+```
 
 #Dataset Preprocessing Visualisation and Exploration
 
+```{r}
+colSums(is.na(data))
+```
+
+
+```{r}
+data %<>% mutate_at(vars(diagnosis), factor)
+```
+
+```{r}
+train <- data %>% sample_frac(0.8)
+test <- anti_join(data,train, by='id')
+```
+
+```{r}
+data %<>%  
+  dplyr::select(-c(id, X33))
+train %<>%  
+  dplyr::select(-c(id, X33))
+test %<>%  
+  dplyr::select(-c(id, X33))
+```
+
+```{r}
+training_data <- train[2:dim(train)[2]] 
+training_classes <- train[1] 
+
+test_data <- test[2:dim(test)[2]] 
+test_classes <- test[1] 
+```
+
+
+```{r}
+sum(is.na(data))
+```
+
+```{r}
+corr <- data[,-1] %>% 
+          cor() %>% 
+           round(1)
+ggcorrplot(corr,
+           hc.order = TRUE,
+           colors = c("#6D9EC1", "white", "#E46726"),
+           ggtheme = ggplot2::theme_minimal)
+```
+
+  - Class Frequencies
+  - Density
+  - box plots
+
+
+
 
 #Dimensionality Reduction and Feature Selection
-  - Correlation Feature Selection
   - PCA
+Code
+```{r}
+normalise_z <-  function(X){
+  mean_cols <- colMeans(X)
+  sd_cols <- apply(X, 2, sd)
+  mean_normalised_X <- t(apply(X, 1, function(x){x - mean_cols}))
+  normalised_X <- t(apply(mean_normalised_X, 1, function(x){x / sd_cols}))
+  return(normalised_X)
+}
+
+
+pca <- function(X, number_components_keep) {
+  normalised_X <- normalise_z(X)
+  
+  corr_mat <- t(normalised_X) %*% normalised_X
+  
+  eigenvectors <- eigen(corr_mat, symmetric=TRUE)$vectors
+  print(dim(X))
+  
+  reduced_data <-  X %*% eigenvectors[,1:number_components_keep]
+  relevant_eigs <-  eigenvectors[,1:number_components_keep]
+  returnds <- list(reduced_data, relevant_eigs)
+  names(returnds) <- c("reduced_data", "reduction_matrix")
+  return(returnds)
+}
+``` 
+
+Apply to dataset
+```{r}
+pca_result <- pca(as.matrix(test_data), 2)
+
+ggplot(data=data.frame(pca_result$reduced_data), aes(x=X1, y=X2)) + geom_point(aes(colour=test_classes)) + stat_function(fun=sp)
+```
+
+  
+  
+  
+  - Correlation Feature Selection
   - tSNE
   - LDA
+``
+
+```
 
 
 # Classification
