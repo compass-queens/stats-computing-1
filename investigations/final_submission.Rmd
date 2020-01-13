@@ -1,0 +1,29 @@
+---
+title: "SC1_Proj"
+author: "Alessio"
+date: "13 January 2020"
+output: pdf_document
+---
+
+#Description of the dataset and problem
+
+
+#Dataset Preprocessing Visualisation and Exploration
+
+
+#Dimensionality Reduction and Feature Selection
+  - Correlation Feature Selection
+  - PCA
+  - tSNE
+  - LDA
+
+
+# Classification
+  - Naive Bayes
+  - SVM
+  - Logistic Regression
+  - Lasso
+
+#Conclusion
+  - Evaluation of results
+  - Discuss outliers
