@@ -13,6 +13,7 @@ library(ggcorrplot)
 library(tidyr)
 library(readr)
 library(devtools)
+library(tsne)
 ```
 
 #Description of the dataset and problem
@@ -113,18 +114,17 @@ reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_clas
 ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
   
-  
- 
- 
-  
-  - Correlation Feature Selection
-  - tSNE
-  - LDA
+ tSNE 
+TODO: try different perplexity parameters
 ```{r}
+reduced_training_data <- tsne::tsne(training_data)
 
+reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes))
+ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
 
-
+  - Correlation Feature Selection
+  - LDA
 
 # Classification
   - Naive Bayes
