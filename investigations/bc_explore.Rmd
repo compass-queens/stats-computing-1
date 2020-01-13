@@ -16,18 +16,17 @@ library(magrittr)
 library(dplyr)
 library(ggcorrplot)
 library(devtools)
+library(glmnet)
 ```
 
 Import data
 ```{r}
 data <- read.csv("../data/data.csv")
-dim(data)
-print(colnames(data))
+glimpse(data)
 ```
 Check for NAs
 ```{r}
-data %>% 
-  summarise_all(funs(sum(is.na(.))))
+
 ```
 Remove *id* and *X*
 ```{r}
@@ -40,8 +39,23 @@ Correlation plot
 corr <- data[,-1] %>% 
           cor() %>% 
            round(1)
-ggcorrplot(corr, hc.order = TRUE,colors = c("#6D9EC1", "white", "#E46726"),ggtheme = ggplot2::theme_minimal)
+ggcorrplot(corr, hc.order = TRUE,colors = c("#6D9EC1", "white", "#E46726"), ggtheme = ggplot2::theme_minimal)
 ```
+
+Plot
+```{r fig.height=40, fig.width=30}
+data %>% 
+  group_by(diagnosis) %>% 
+  gather(key="var",value="value",-diagnosis) %>% 
+  ggplot(aes(x=value))+
+  facet_wrap(~var,scales='free',nrow=6)+
+  geom_density(aes(fill=diagnosis),alpha=0.4)+
+  theme_minimal()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position="bottom")
+```
+
 
 ## Split data into training and test set
 ```{r}
@@ -73,7 +87,8 @@ cv_lasso <- cv.glmnet(X,y, nfolds = 10, family="binomial",type.measure = "class"
 
 plot(cv_lasso)
 ```
-The selected lambdas are 
+
+The selected lambdas are
 ```{r}
 # lambda that gives the minimum cross-validation error
 cv_lasso$lambda.min
@@ -88,6 +103,7 @@ coefs <- coef(cv_lasso,s="lambda.min")
 # number of non-zero coefficients
 sum(coefs!=0)
 ```
+
 Make predictions
 ```{r}
 y_test <- test$diagnosis
@@ -95,25 +111,59 @@ X_test <- test %>% select(-diagnosis) %>% as.matrix()
 predictions <- predict(cv_lasso,newx=X_test,s="lambda.min",type="class")
 ```
 
+```{r}
+confusion_plot <- function(actual,predicted){
+  confusion_matrix <- as.data.frame(table(actual,predicted))
+  g <-ggplot(confusion_matrix,aes(x=actual,y=predicted))+
+    geom_tile(aes(fill=Freq))+
+    geom_text(aes(label=sprintf("%1.0f", Freq)),color="white",fontface="bold")+
+   labs(x="Actual class",y="Predicted class")+
+    theme_minimal()
+  return(g)
+}
+```
+
 Confusion matrix
 ```{r}
-confusion_matrix <- as.data.frame(table(predictions,y_test))
-
-ggplot(confusion_matrix,aes(y=predictions,x=y_test))+
-  geom_tile(aes(fill=Freq))+
-  geom_text(aes(label=sprintf("%1.0f", Freq)),color="white",fontface="bold")+
-  labs(y="Predicted class",x="True class")+
-  theme_minimal()
+confusion_plot(y_test,predictions)
 ```
+
+Naive Bayes
+```{r}
+install_github("andreabecsek/NaiveBayes")
+library(NaiveBayes)
+X <- unname(X)
+X_test <- unname(X_test)
+
+levels(y) <- c(0,1)
+y %<>% matrix
+mode(y) <- 'numeric'
+
+levels(y_test) <-c(0,1)
+y_test %<>% matrix
+mode(y_test) <- 'numeric'
+
+model_naive <- naive_bayes(X,y)
+predictions_naive <- predict(model_naive,X_test)
+
+confusion_plot(y_test,predictions_naive)
+```
+
 
 Logistic regression
 ```{r}
-install_github("MauroCE/LogisticRegression")
+install_github("MauroCE/LogisticRegression",force=TRUE)
 # add column of 1s
 X <- unname(cbind(1,X))
+X_test <- unname(cbind(1,X_test))
 # change factor levels to B=0 and M=1
-levels(y) <- c(0,1)
-y <- as.matrix(as.integer(y))
-model_logistic <- LogisticRegression::logistic_regression(X,y,cost="MAP",method = "newton_method")
+
+model_logistic <- LogisticRegression::logistic_regression(X,y,cost="MAP",method = "NEWTON")
+
+predictions_logistic <- predict(model_logistic,xtest = X_test)
+
+confusion_plot(y_test,predictions_logistic)
 ```
+
+
 
