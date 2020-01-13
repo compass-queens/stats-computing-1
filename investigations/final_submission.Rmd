@@ -9,11 +9,12 @@ output: pdf_document
 library(ggplot2)
 library(magrittr)
 library(dplyr)
-library(ggcorrplot)
+library(corrplot)
 library(tidyr)
 library(readr)
 library(devtools)
-library(tsne)
+library(cowplot)
+#library(tsne)
 ```
 
 #Description of the dataset and problem
@@ -21,6 +22,8 @@ TODO: describe
 
 ```{r}
 data <- read_csv("../data/data.csv")
+glimpse(data)
+colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m','concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se','texture_se', 'perim_se','area_se','smooth_se','compact_se','concav_se','concav_pt_se','symmetry_se','frac_dim_se','radius_w','texture_w', 'perim_w','area_w','smooth_w','compact_w','concav_w','concav_pt_w','symmetry_w','frac_dim_w')
 ```
 
 #Dataset Preprocessing Visualisation and Exploration
@@ -49,6 +52,10 @@ test %<>%
 ```
 
 ```{r}
+sum(is.na(data))
+```
+
+```{r}
 training_data <- train[2:dim(train)[2]] 
 training_classes <- train[1] 
 
@@ -56,26 +63,44 @@ test_data <- test[2:dim(test)[2]]
 test_classes <- test[1] 
 ```
 
-
-```{r}
-sum(is.na(data))
-```
-
-```{r}
-corr <- data[,-1] %>% 
+```{r echo=FALSE}
+corr <- training_data[,-1] %>% 
           cor() %>% 
            round(1)
-ggcorrplot(corr,
-           hc.order = TRUE,
-           colors = c("#6D9EC1", "white", "#E46726"),
-           ggtheme = ggplot2::theme_minimal)
+
+corrplot(corr, method='circle',order='hclust',tl.col = "black")
 ```
 
-  - Class Frequencies
-  - Density
-  - box plots
+```{r fig.height=40, fig.width=30, echo=FALSE}
+train %>% 
+  group_by(diagnosis) %>% 
+  gather(key="var",value="value",-diagnosis) %>% 
+  ggplot(aes(x=value))+
+  facet_wrap(~var,scales='free',nrow=6)+
+  geom_density(aes(fill=diagnosis),alpha=0.4)+
+  theme_minimal()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position="bottom")
+```
 
+```{r echo=FALSE}
+g1<-ggplot(training_classes,aes(x=diagnosis,fill=diagnosis))+
+  geom_bar(aes(y=(..count..)/sum(..count..)))+
+  theme_minimal()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position='none')
+  
 
+g2<-ggplot(test_classes,aes(x=diagnosis,fill=diagnosis))+
+  geom_bar(aes(y=(..count..)/sum(..count..)))+
+  theme_minimal()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        legend.position='none')
+plot_grid(g1,g2)
+```
 
 
 #Dimensionality Reduction and Feature Selection
@@ -93,18 +118,18 @@ normalise_z <-  function(X){
 
 pca <- function(X, number_components_keep) {
   normalised_X <- normalise_z(X)
-  
+
   corr_mat <- t(normalised_X) %*% normalised_X
-  
+
   eigenvectors <- eigen(corr_mat, symmetric=TRUE)$vectors
-  
+
   reduced_data <-  X %*% eigenvectors[,1:number_components_keep]
   relevant_eigs <-  eigenvectors[,1:number_components_keep]
   returnds <- list(reduced_data, relevant_eigs)
   names(returnds) <- c("reduced_data", "reduction_matrix")
   return(returnds)
 }
-``` 
+```
 
 Apply to dataset
 ```{r}
@@ -113,8 +138,8 @@ reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_clas
 
 ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
-  
- tSNE 
+
+ tSNE
 TODO: try different perplexity parameters
 ```{r}
 reduced_training_data <- tsne::tsne(training_data)
