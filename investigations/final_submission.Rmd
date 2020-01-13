@@ -14,6 +14,9 @@ library(tidyr)
 library(readr)
 library(devtools)
 library(tsne)
+library(devtools)
+install_github("alessio-b-zak/sc1-svm-example-package")
+library(alessiosvm)
 ```
 
 #Description of the dataset and problem
@@ -109,9 +112,9 @@ pca <- function(X, number_components_keep) {
 Apply to dataset
 ```{r}
 pca_result <- pca(as.matrix(training_data), 2)
-reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
+pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
 
-ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
+ggplot(data=pca_reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
   
  tSNE 
@@ -127,8 +130,77 @@ ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diag
   - LDA
 
 # Classification
+TODO: Mathematical description 
+ 
+TODO: Basic Code describing implementation  
+  
+```{r}
+soft_margin_svm_plotter <- function(w, b) {
+  plotter <- function(x) {
+    return(1/w[2]   * -(b + (w[1]*as.numeric(x))))
+  }
+  return(plotter)
+}
+```
+
+```{r}
+factor_to_label <- function(x)  {
+  if(as.character(x) == "M")  {
+    return(1)
+  }
+  else {
+    return(-1)
+  }
+}
+```
+
+```{r}
+label_to_factor <- function(x) {
+  if(x == 1) {
+    return(as.factor("M"))
+  }
+  else{
+    return(as.factor("B"))
+  }
+}
+numeric_test_labels <- apply(test_classes, 1, factor_to_label)
+```
+
+
+Use PCA then do SVM 
+```{r}
+model <- svm(X=pca_result$reduced_data, 
+             classes=numeric_training_labels, 
+             C=100000, margin_type='soft', 
+             kernel_function = linear_kernel, 
+             feature_map = linear_basis_function)
+
+
+reduced_prediction_fn <- model$prediction_function
+
+pca_reduced_prediction_fn <- function(x) {
+  p <- x %*% pca_result$reduction_matrix
+  reduced_prediction_fn(t(p))
+}
+```
+ 
+```{r}
+predictions <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
+accuracy_calc(numeric_test_labels, predictions)
+```
+
+```{r}
+svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
+embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*% pca_result$reduction_matrix), test_classes)
+
+ggplot(embedded_test_data, aes(x=as.numeric(X1), y=as.numeric(X2))) + 
+  geom_point(aes(colour=test_classes)) + 
+  stat_function(fun=svm_plotter)
+```
+
+TODO: analyse results
+  
   - Naive Bayes
-  - SVM
   - Logistic Regression
   - Lasso
 
