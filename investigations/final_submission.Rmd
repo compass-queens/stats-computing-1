@@ -96,7 +96,6 @@ pca <- function(X, number_components_keep) {
   corr_mat <- t(normalised_X) %*% normalised_X
   
   eigenvectors <- eigen(corr_mat, symmetric=TRUE)$vectors
-  print(dim(X))
   
   reduced_data <-  X %*% eigenvectors[,1:number_components_keep]
   relevant_eigs <-  eigenvectors[,1:number_components_keep]
@@ -108,20 +107,23 @@ pca <- function(X, number_components_keep) {
 
 Apply to dataset
 ```{r}
-pca_result <- pca(as.matrix(test_data), 2)
+pca_result <- pca(as.matrix(training_data), 2)
+reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
 
-ggplot(data=data.frame(pca_result$reduced_data), aes(x=X1, y=X2)) + geom_point(aes(colour=test_classes)) + stat_function(fun=sp)
+ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
-
   
   
+ 
+ 
   
   - Correlation Feature Selection
   - tSNE
   - LDA
-``
+```{r}
 
 ```
+
 
 
 # Classification
