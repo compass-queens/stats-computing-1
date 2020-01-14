@@ -1,0 +1,365 @@
+---
+title: "Logistic Regression Data Exploration"
+output: html_document
+---
+\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1}}}
+\newcommand{\vbeta}{\vect{\beta}}
+\newcommand{\vx}{\vect{x}}
+\newcommand{\vy}{\vect{y}}
+\newcommand{\vzero}{\vect{0}}
+\newcommand{\vSigma}{\vect{\Sigma}}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(devtools)
+install_github("MauroCE/LogisticRegression")
+```
+
+# Data Preparation
+### Read Data using column specifications
+The last column contains only `NA` values so we drop it.
+```{r, warning=FALSE}
+data <- read_csv(
+  file="../data/data.csv", 
+  col_types=cols(.default="d", diagnosis="f", id="f")
+  ) %>% 
+  select_if(function(x) sum(!is.na(x)) > 0)
+```
+
+### Define function mapping factor to binary
+
+```{r}
+labels_to_zero <- function(y){
+  y[y == "B"] <- 0
+  y[y == "M"] <- 1
+  return(matrix(as.numeric(y)))
+}
+```
+
+### Create Training and Testing Data
+
+```{r}
+# Select a proportion for training and select corresponding rows in random order
+set.seed(123)
+training_prop <- 0.7
+shuffle <- sample(1:nrow(data), round(nrow(data)*training_prop))
+# Use the indeces to obtain training and testing data frames
+train <- data[shuffle , ]
+test  <- data[-shuffle, ]
+# Select ids for later usage?
+train_ids <- train %>% select(id) %>% as.matrix
+test_ids  <- test %>% select(id) %>% as.matrix
+# Select X and y for training. Should I unname?
+X <- train %>% select(-id, -diagnosis) %>% as.matrix %>% unname %>% cbind(1, .)
+y <- train %>% select(diagnosis) %>% as.matrix %>% unname %>% labels_to_zero
+# Select X and y for testing
+Xtest <- test %>% select(-id, -diagnosis) %>% as.matrix %>% unname %>% cbind(1, .)
+ytest <- test %>% select(diagnosis) %>% as.matrix %>% unname %>% labels_to_zero
+```
+
+### Define function calculating predictive accuracy
+
+```{r}
+calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
+```
+
+### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
+
+```{r}
+# MAP, BFGS
+lr_map_bfgs <- LogisticRegression::logistic_regression(X, y, cost="MAP", method="BFGS")
+yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
+acc_map_bfgs <- calc_accuracy(ytest, yhat_map_bfgs)
+# MAP, NEWTON
+lr_map_nm <- LogisticRegression::logistic_regression(X, y, cost="MAP", method="NEWTON")
+yhat_map_nm <- predict(lr_map_nm, Xtest)
+acc_map_nm <- calc_accuracy(ytest, yhat_map_nm)
+# MAP, GRADIENT ASCENT
+lr_map_ga <- LogisticRegression::logistic_regression(X, y, cost="MAP", method="GA", niter=1000)
+yhat_map_ga <- predict(lr_map_ga, Xtest)
+acc_map_ga <- calc_accuracy(ytest, yhat_map_ga)
+```
+
+### Maximum Likelihood Estimation with BFGS, Newton's Method and Gradient Ascent
+
+```{r}
+# MLE, BFGS
+lr_mle_bfgs <- LogisticRegression::logistic_regression(X, y, cost="MLE", method="BFGS")
+yhat_mle_bfgs <- predict(lr_mle_bfgs, Xtest)
+acc_mle_bfgs <- calc_accuracy(ytest, yhat_mle_bfgs)
+# MLE, NEWTON
+lr_mle_nm <- LogisticRegression::logistic_regression(X, y, cost="MLE", method="NEWTON", niter=400)
+yhat_mle_nm <- predict(lr_mle_nm, Xtest)
+acc_mle_nm <- calc_accuracy(ytest, yhat_mle_nm)
+# MLE, GRADIENT ASCENT
+lr_mle_ga <- LogisticRegression::logistic_regression(X, y, cost="MLE", method="GA", niter=2000)
+yhat_mle_ga <- predict(lr_mle_ga, Xtest)
+acc_mle_ga <- calc_accuracy(ytest, yhat_mle_ga)
+```
+
+### Combine results in a single matrix
+
+```{r}
+# put everything together into a nice table
+results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
+                           acc_map_bfgs, acc_map_nm, acc_map_ga), 
+                         dimnames=list(c("BFGS", "NM", "GA"), c("MLE", "MAP")), 
+                         nrow=3, ncol=2)
+results <- data.frame(results_matrix)
+results
+```
+
+# FDA
+Helper function for fda
+```{r}
+make_flags <- function(y){
+  classes <- unique(y)
+  flags <- data.frame(y=y) %>% 
+            mutate(rn=row_number(), value=1) %>% 
+            spread(y, value, fill=0) %>% 
+            dplyr::select(-rn) %>% as.matrix %>% as.logical %>%
+            matrix(nrow=nrow(y)) 
+  return(flags)
+}
+```
+
+Function for FDA
+```{r}
+fda <- function(X, y){
+  # Use y to create a logical one-hot encoding called `flags`
+  flags <- make_flags(y)
+  # Define objective function 
+  fda_objective <- function(w){
+    mu <- mean(X %*% w)           # embedded DATASET center
+    muks <- rep(0, ncol(flags))   # embedded center for class k
+    swks <- rep(0, ncol(flags))   # within class scatterness
+    sbks <- rep(0, ncol(flags))   # between class scatterness
+    for (class in 1:ncol(flags)){
+      Xk <- X[flags[, class], ]
+      mk <- mean(Xk %*% w)
+      muks[class] <- mk
+      swks[class] <- sum(((Xk %*% w) - mk)^2)
+      sbks[class] <- sum(flags[, class]) * (mk - mu)^2
+    }
+    # Calculate objective value
+    value <- sum(sbks) / sum(swks)
+    return(-value) # remember we want to maximize, but optim minimizes
+  }
+  # Optimize
+  w_start <- matrix(1, nrow=ncol(X), ncol=1)
+  sol <- optim(par=w_start, fn=fda_objective, method="BFGS")$par
+  # Return object
+  fda_object <- list(sol=sol, flags=flags, X=X, y=y)
+  class(fda_object) <- "FDA"
+  return(fda_object)
+}
+```
+
+plotting method
+```{r}
+plot.FDA <- function(x, y=NULL, ...){
+  # Find unit vector of w and take dot product
+  sol_unit <- x$sol / sqrt(sum(x$sol^2))
+  dot_products <-  x$X %*% sol_unit
+  if (ncol(x$X) > 2){
+    # Plot on a simple horizontal line if there's more than 2 features
+  df <- data.frame(x1=dot_products, x2=rep(0, nrow(dot_products)), y=x$y)
+  p <- ggplot(data=df) + 
+        geom_point(aes(x=x1, y=x2, color=as_factor(x$y)))
+  } else { # plot everything
+    # Find embedded points in 2D
+    x_emb <- dot_products %*% t(sol_unit)
+    dfembed <- data.frame(x1=x_emb[, 1], x2=x_emb[, 2], y=x$y)
+    # Find data mean, and mean per cluster
+    datamean <- apply(x$X, 2, mean)
+    datamean <- data.frame(x=datamean[1], y=datamean[2])
+    meanmatrix <- calc_func_per_class(x$X, x$y, mean)
+    dfclassmeans <- data.frame(meanmatrix, y=(1:nrow(meanmatrix) - 1))
+    # Dataframe to plot w
+    wdf <- data.frame(x=x$sol[1], y=x$sol[2], x0=c(0.0), y0=c(0.0))
+    # Plot
+    p <- ggplot() + 
+          geom_point(data=data.frame(x$X, x$y), aes(x=X1, y=X2, color=as_factor(y)), alpha=0.2) + 
+          geom_point(data=dfclassmeans, aes(x=X1, y=X2, color=as_factor(y)), shape=3, size=8, show.legend=FALSE) + 
+          geom_point(data=datamean, aes(x=x, y=y), size=8, shape=3, color="black") +
+          geom_point(data=dfembed, aes(x=x1, y=x2, color=as_factor(y))) + 
+          geom_segment(data=wdf, aes(x=x0, y=y0, xend=x, yend=y, color="w"), 
+                       arrow = arrow(length=unit(0.15, "inches")), color="darkred", size=1)
+  }
+  p + 
+    labs(color="Class", title="FDA-Embedded Dataset", x="X1", y="X2") + 
+    theme(plot.title=element_text(hjust=0.5, size=20))
+}
+```
+
+try it
+```{r}
+X_fda <- X[, -1]
+plot(fda(X_fda, y))
+```
+
+
+# Logistic Regression
+### Mathematical Setting
+Let $Y_i\mid \vx_i \sim \text{Bernoulli}(p_i)$ with $p_i = \sigma(\vx_i^\top \vbeta)$ where $\sigma(\cdot)$ is the **sigmoid function**. The joint log-likelihood is given by
+$$
+\ln p(\vy\mid \vbeta) = \sum_{i=1}^n y_i \ln(p_i) + (1 - y_i)\ln(1 - p_i)=-\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
+$$
+
+### Maximum Likelihood Estimation
+Maximizing the likelihood is equivalent to minimizing the negative log-likelihood. Minimizing the negative log likelihood is equivalent to solving the following optimization problem
+
+$$
+\min_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
+$$
+
+### Maximum-A-Posteriori and Ridge Regularization
+We can introduce an isotropic Gaussian prior on **all** the coefficients $p(\vbeta) = N(\vzero, \sigma_{\vbeta}^2 I)$. Maximizing the posterior $p(\vbeta \mid \vy)$ is equivalent to minimizing the negative log posterior $-\ln p(\vbeta\mid \vy)$ giving
+
+$$
+\min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
+$$
+Often we don't want to regularize the intercept, future work could look into placing an isotropic Gaussian prior on $\vbeta_{1:p-1}:=(\beta_1, \ldots, \beta_{p-1})$ and instead we place a uniform distribution on $\beta_0$, which doesn't depend on $\beta_0$. This would leads to 
+$$
+\min_{\vbeta} \sigma_{\vbeta_{1:p-1}}^2\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta_{1:p-1}^\top\vbeta_{1:p-1}
+$$
+
+### Gradient Ascent (MLE, No Regularization)
+Updates take the form
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
+$$
+where the step size $\gamma$ can either be chosen small.
+
+### Gradient Ascent (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
+$$
+
+### Newton's Method (MLE, No Regularization)
+The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
+$$
+In practice we would solve the corresponding system for $\vect{d}$
+$$
+(X^\top D X)\vect{d}_k = \alpha X^\top(\vy - \sigma(X\vbeta_k))
+$$
+and then perform the update
+$$
+\vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
+$$
+
+### Newton's Method (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
+$$
+
+and again, in practice we solve the linear system rather than inverting the matrix.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
