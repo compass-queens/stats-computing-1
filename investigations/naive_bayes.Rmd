@@ -7,6 +7,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 # Mathematical setting
 
 Let $y$ be the class label that we want to assign to an observation $\boldsymbol{x}=(x_1,\cdots x_d)$, where $x_1,\cdots x_d$ are the features. The probability of an observation having label $y$ is given by Bayes rule,
@@ -78,5 +79,31 @@ for (obs in 1:n) {
 }
 
 pred <- apply(probs, 1, which.max)
+```
+
+
+```{r}
+install_github("andreabecsek/NaiveBayes")
+library(NaiveBayes)
+```
+
+Convert classes from factor to numeric labels.
+```{r}
+levels(training_classes) <- c(0,1)
+training_classes %<>% matrix
+mode(training_classes) <- 'numeric'
+
+levels(test_classes) <-c(0,1)
+test_classes %<>% matrix
+mode(test_classes) <- 'numeric'
+```
+
+Fit the Naive Bayes model to the data, calculate predictions and check the accuracy using.
+```{r}
+model_naive <- naive_bayes(training_data,training_classes)
+
+predictions_naive <- predict(model_naive,test_data)
+
+confusion_plot(test_classes,predictions_naive)
 ```
 
