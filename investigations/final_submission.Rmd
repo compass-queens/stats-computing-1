@@ -499,7 +499,37 @@ predictions_naive <- predict(model_naive,as.matrix(test_data))
 confusion_plot(test_classes,predictions_naive)
 ```
 
+
 # Logistic Regression
+### Mathematical Setting
+Let $Y_i\mid \vx_i \sim \text{Bernoulli}(p_i)$ with $p_i = \sigma(\vx_i^\top \vbeta)$ where $\sigma(\cdot)$ is the **sigmoid function**. The joint log-likelihood is given by
+$$
+\ln p(\vy\mid \vbeta) = \sum_{i=1}^n y_i \ln(p_i) + (1 - y_i)\ln(1 - p_i)=-\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
+$$
+
+### Maximum Likelihood Estimation
+Maximizing the likelihood is equivalent to minimizing the negative log-likelihood. Minimizing the negative log likelihood is equivalent to solving the following optimization problem
+
+$$
+\min_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
+$$
+
+### Maximum-A-Posteriori and Ridge Regularization
+We can introduce an isotropic Gaussian prior on **all** the coefficients $p(\vbeta) = N(\vzero, \sigma_{\vbeta}^2 I)$. Maximizing the posterior $p(\vbeta \mid \vy)$ is equivalent to minimizing the negative log posterior $-\ln p(\vbeta\mid \vy)$ giving
+
+$$
+\min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
+$$
+Often we don't want to regularize the intercept, future work could look into placing an isotropic Gaussian prior on $\vbeta_{1:p-1}:=(\beta_1, \ldots, \beta_{p-1})$ and instead we place a uniform distribution on $\beta_0$, which doesn't depend on $\beta_0$. This would leads to 
+$$
+\min_{\vbeta} \sigma_{\vbeta_{1:p-1}}^2\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta_{1:p-1}^\top\vbeta_{1:p-1}
+$$
+
+### Gradient Ascent (MLE, No Regularization)
+Updates take the form
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
+$$
 ### Accuracy function
 ```{r}
 calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
