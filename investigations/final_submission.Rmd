@@ -26,15 +26,23 @@ install_github("alessio-b-zak/sc1-svm-example-package")
 library(cowplot)
 library(reshape2)
 library(alessiosvm)
+library(knitr)
 ```
 
-# Dataset
-The dataset is
+# Introduction
+One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
+
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation.
+
+The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
+
+
 TODO: describe
 
 ```{r}
 data <- read_csv("../data/data.csv")
-glimpse(data)
+glimpse(data) %>% 
+  kable()
 colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m','concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se','texture_se', 'perim_se','area_se','smooth_se','compact_se','concav_se','concav_pt_se','symmetry_se','frac_dim_se','radius_w','texture_w', 'perim_w','area_w','smooth_w','compact_w','concav_w','concav_pt_w','symmetry_w','frac_dim_w')
 ```
 
@@ -461,16 +469,6 @@ install_github("andreabecsek/NaiveBayes")
 library(NaiveBayes)
 ```
 
-<!-- Convert class labels from $-1,1$ to $0,1$. -->
-<!-- ```{r} -->
-<!-- numeric_training_labels[numeric_training_labels==-1]<-0 -->
-<!-- numeric_training_labels %<>%  -->
-<!--   as.matrix() -->
-
-<!-- numeric_test_labels[numeric_training_labels==-1]<-0 -->
-<!-- numeric_test_labels %<>%  -->
-<!--   as.matrix() -->
-<!-- ``` -->
 
 ```{r}
 levels(training_classes$diagnosis) <- c(0,1)
@@ -491,6 +489,7 @@ predictions_naive <- predict(model_naive,as.matrix(test_data))
 confusion_plot(test_classes,predictions_naive)
 ```
 
+# Conclusion
 Merge all predictions
 ```{r}
 id <- seq(length(id_test))
@@ -516,13 +515,6 @@ ggplot(a,aes(x=id,y=variable,fill=value))+
   geom_raster()+
   theme_minimal()
 ```
-
-
-
-TODO: analyse results
-  
-  - Naive Bayes
-  - Logistic Regression
 
 #Conclusion
   - Evaluation of results
