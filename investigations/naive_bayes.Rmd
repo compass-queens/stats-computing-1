@@ -1,0 +1,82 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Mathematical setting
+
+Let $y$ be the class label that we want to assign to an observation $\boldsymbol{x}=(x_1,\cdots x_d)$, where $x_1,\cdots x_d$ are the features. The probability of an observation having label $y$ is given by Bayes rule,
+\begin{align*}
+P(y|x_1,\cdots,x_d)&=\frac{P(x_1,\cdots,x_d|y_k)P(y)}{P(x_1,\cdots,x_d)}\\
+&\propto P(x_1,\cdots,x_d|y_k)P(y).
+\end{align*}
+
+The prior class probability $P(y)$ can be easily obtained by the proportion of observation that are in the given class.
+
+
+The main assumption is that every feature is conditionally independent given the class label $y$. The reason why this classifier is called *naive* is that very often this assumption is not actually realistic.
+
+
+This assumption simplifies the posterior to
+$$P(y|x_1,\cdots,x_d) \propto P(y)\prod_{i=1}^d P(x_i|y).$$
+There are various types of Naive Bayes classifiers based on the type of features. In our case, since we have continuous variables we assume that all features are normally distributed. Therefore, the conditional probabilities can be calculated as
+$$P(x_i|y)=\frac{1}{\sqrt{2\pi\sigma_y^2}}exp\left(-\frac{(x_i-\mu_y)^2}{2\sigma_y^2}\right)$$
+
+Finally, to assign the class to an observation we use the Maximum A Posteriori decision rule. For every observation, we pick the class the has the highest probability
+$$y=\underset{y}{\text{argmax}}P(y)\prod_{i=1}^dP(x_i|y).$$
+
+# Implementation
+
+*Here are some code snippets just to illustrate how these theoretical aspects are implemented. The full code can be found in the package.*
+
+The observations are stored as rows in $X$ and the corresponding class labels are entires in the column matrix $y$.
+
+First we calculate the prior class probabilities based on the number of observations in each class.
+
+```{r eval = FALSE}
+n <- dim(X)[1]
+d <- dim(X)[2]
+classes <- sort(unique(y)[, 1])
+k <- length(classes)
+
+prior <- rep(0, k)
+for (i in 1:k) {
+  prior[i] <- sum(y == classes[i]) / n
+}
+```
+
+Then we create an array of the mean and sd of the data split by clasess and features.
+
+```{r eval = FALSE}
+summaries <- array(rep(1, d * k * 2), dim = c(k, d, 2))
+for (i in 1:k) {
+  X_k <- X[which(y == (i - 1)), ]
+  summaries[i, , 1] <- apply(X_k, 2, mean)
+  summaries[i, , 2] <- apply(X_k, 2, sd)
+}
+```
+
+Finally, the predictions are obtained by taking the largest posterior class probability. Note that in order to avoid underflow, we take the maximum of the *log* posterior class probabilities. 
+
+```{r eval = FALSE}
+probs <- matrix(rep(0, n * k), nrow = n)
+for (obs in 1:n) {
+  for (class in 1:k) {
+    class_prob <- log(prior[class])
+    for (feat in 1:d) {
+      mu <- summaries[class, feat, 1]
+      sd <- summaries[class, feat, 2]
+      cond <- dnorm(x_new[obs, feat], mu, sd, log = TRUE)
+      class_prob <- class_prob + cond
+      }
+     probs[obs, class] <- class_prob
+  }
+}
+
+pred <- apply(probs, 1, which.max)
+```
+
