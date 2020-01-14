@@ -188,13 +188,13 @@ pca_reduced_prediction_fn <- function(x) {
 predictions <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 accuracy_calc(numeric_test_labels, predictions)
 ```
-
+TODO: rename axis
 ```{r}
 svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
 embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*% pca_result$reduction_matrix), test_classes)
 
 ggplot(embedded_test_data, aes(x=as.numeric(X1), y=as.numeric(X2))) + 
-  geom_point(aes(colour=test_classes)) + 
+  geom_point(aes(colour=diagnosis)) + 
   stat_function(fun=svm_plotter)
 ```
 
