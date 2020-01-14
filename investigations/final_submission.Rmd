@@ -3,6 +3,9 @@ title: "SC1_Proj"
 author: "Alessio"
 date: "13 January 2020"
 output: pdf_document
+header-includes:
+- \usepackage{amsmath}
+- \usepackage{bm}
 ---
 
 ```{r, include=FALSE}
@@ -117,22 +120,149 @@ pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_
 ggplot(data=pca_reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
   
- tSNE 
-TODO: try different perplexity parameters
-```{r}
-reduced_training_data <- tsne::tsne(training_data)
-
-reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes))
-ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
-```
+# tSNE 
+#TODO: try different perplexity parameters
+#```{r}
+#reduced_training_data <- tsne::tsne(training_data)
+#
+#reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes))
+#ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
+#```
 
   - Correlation Feature Selection
   - LDA
 
 # Classification
-TODO: Mathematical description 
- 
-TODO: Basic Code describing implementation  
+To solve the problem of finding a SVM like classifier for non-separable data we must permit a certain number of points to violate the boundaries set however this number and the amount they violate the constraints by must be as small as possible. To formulate this we introduce a variable $\epsilon_{i}$ for each data point into the objective functions and the constraints leading to the optimisation problem:
+
+$$
+\underset{w, \epsilon_{i}}{\text{min}} \, \frac{1}{2} w^{T}w + C\sum\limits_{i=0}^{n}\epsilon_{i}
+$$
+$$
+\text{such that } w \cdot x_{i} + b + \epsilon_{i}> 1 \text{ if } y_{i} =1
+$$
+$$
+\text{and } w \cdot x_{i} + b + \epsilon_{i}< -1 \text{ if } y_{i} =-1
+$$
+
+Note that we have swapped the sign of the $b$ term in the equation for the hyperplane because I implemented it this way before realising they were different and am lazy.
+
+As the above problem is convex (as it is quadratic) and Slater's condition holds then strong duality holds and we can take the Lagrangian of the optimisation problem and consider the result of the KKT conditions. By doing so we can reformulate the optimisation problem as the dual problem:
+
+
+$$
+\underset{\lambda}{\text{min}} \, \frac{\overline{\lambda}X X^{T}\overline{\lambda^{T}}}{4}
++ \lambda^{T}\bm{1}
+$$
+$$
+\text{such that } 0 \leq \lambda_{i} \leq C
+$$
+$$
+\text{and } \sum\limits_{i}^{n} \lambda_{i}y_{i} = 0
+$$
+
+where
+$$
+X = \begin{pmatrix}
+x_{1} \\
+\vdots \\
+x_{n}
+\end{pmatrix} \text{ and } 
+\overline{\lambda} = [\lambda_{1} \cdot y_{i}, ... , \lambda_{n} \cdot y_{n}] \text{ and } \bm{1} = [1, ..., 1] \in \mathbb{R^{n}}
+$$
+As before we have to massage this optimisation problem into one that can be solved using `solve.QP`. In this formulation 
+
+$$
+d = \bm{1}
+$$
+and 
+$$
+D = 
+\begin{pmatrix}
+y_{1} & 0  & ... & 0 \\
+0 & y_{2} & ... & 0 \\
+\vdots & \vdots & \ddots  & \vdots \\
+0 & 0 & ... & y_{n} 
+\end{pmatrix} X X^{T}
+\begin{pmatrix}
+y_{1} & 0  & ... & 0 \\
+0 & y_{2} & ... & 0 \\
+\vdots & \vdots & \ddots  & \vdots \\
+0 & 0 & ... & y_{n} 
+\end{pmatrix}
+$$
+$A$ and $b_{0}$ require slightly more manipulation this time around with
+
+$$
+A = \begin{pmatrix}
+y_{1} & y_{2} & ... & y_{n} \\
+&&\hspace{-5mm}  I \\
+&&\hspace{-5mm}  -I
+\end{pmatrix}
+$$
+and
+$$
+b_{0} = \begin{pmatrix}
+0 \\
+\bm{0}\\
+-\bm{C} 
+\end{pmatrix}
+$$
+where
+$$
+\bm{0} = [0, \, ... , \, 0]^{T} \in \mathbb{R}^{n}
+$$
+and
+$$
+\bm{C} = [C, \, ... \, , \, C]^{T} \in \mathbb{R}^{n}
+$$
+The code for this applied to the non-separable data can be found below.
+
+```{r, eval=FALSE}
+C <- 1
+
+X <- as.matrix(combined_class)[,1:2]
+y <- as.matrix(combined_class)[,3]
+Dmat2 <- diag(y) * X %*% t(X) %*% diag(y)
+diag(Dmat2) <- diag(Dmat2) + 1e-11
+dv2 <- rep(1, 30)
+
+A2 <- rbind( y,diag(30)) 
+A2 <- rbind(A2, -1*diag(30))
+
+bv2 <- c(c(0), rep(0, 30), rep(-C, 30) )
+model <- solve.QP(Dmat2, dv2, t(A2), bv2, meq = 1)
+```
+
+In order to recover $w$ and $b$ from $\lambda$ we use the relationship
+$$
+w = \sum\limits_{i=0}^{n-1}\lambda_{i}x_{i}^{T}y_{i}
+$$
+and
+$$
+b = \text{mean}(\sum\limits_{i=0}^{k} y_{i} - w \cdot x_{i}) \, . \, \forall \, i . 0 < \lambda_{i} < C
+$$
+Which can be made as functions in R as so:
+
+```{r}
+calculate_b <- function(w, X, y, a, C) {
+  ks <- sapply(a, function(x){return(x > 0 && x < C)})
+  indices <- which(ks)
+  sum_bs <- 0
+  for(i in indices) {
+    sum_bs <- sum_bs + (y[i] - w %*% X[i,]) 
+  }
+  return(sum_bs / length(indices))
+}
+
+
+recover_w <- function(a, y, X){
+  colSums(diag(a) %*% diag(y) %*% X)
+}
+```
+
+
+We can see the results of using the dual regression below
   
 ```{r}
 soft_margin_svm_plotter <- function(w, b) {
@@ -164,6 +294,7 @@ label_to_factor <- function(x) {
   }
 }
 numeric_test_labels <- apply(test_classes, 1, factor_to_label)
+numeric_training_labels <- apply(training_classes, 1, factor_to_label)
 ```
 
 
@@ -188,7 +319,6 @@ pca_reduced_prediction_fn <- function(x) {
 predictions <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 accuracy_calc(numeric_test_labels, predictions)
 ```
-TODO: rename axis
 ```{r}
 svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
 embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*% pca_result$reduction_matrix), test_classes)
