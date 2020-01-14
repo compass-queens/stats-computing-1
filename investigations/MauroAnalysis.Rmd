@@ -164,32 +164,9 @@ plot.FDA <- function(x, y=NULL, ...){
   # Find unit vector of w and take dot product
   sol_unit <- x$sol / sqrt(sum(x$sol^2))
   dot_products <-  x$X %*% sol_unit
-  if (ncol(x$X) > 2){
-    # Plot on a simple horizontal line if there's more than 2 features
   df <- data.frame(x1=dot_products, x2=rep(0, nrow(dot_products)), y=x$y)
-  p <- ggplot(data=df) + 
-        geom_point(aes(x=x1, y=x2, color=as_factor(x$y)))
-  } else { # plot everything
-    # Find embedded points in 2D
-    x_emb <- dot_products %*% t(sol_unit)
-    dfembed <- data.frame(x1=x_emb[, 1], x2=x_emb[, 2], y=x$y)
-    # Find data mean, and mean per cluster
-    datamean <- apply(x$X, 2, mean)
-    datamean <- data.frame(x=datamean[1], y=datamean[2])
-    meanmatrix <- calc_func_per_class(x$X, x$y, mean)
-    dfclassmeans <- data.frame(meanmatrix, y=(1:nrow(meanmatrix) - 1))
-    # Dataframe to plot w
-    wdf <- data.frame(x=x$sol[1], y=x$sol[2], x0=c(0.0), y0=c(0.0))
-    # Plot
-    p <- ggplot() + 
-          geom_point(data=data.frame(x$X, x$y), aes(x=X1, y=X2, color=as_factor(y)), alpha=0.2) + 
-          geom_point(data=dfclassmeans, aes(x=X1, y=X2, color=as_factor(y)), shape=3, size=8, show.legend=FALSE) + 
-          geom_point(data=datamean, aes(x=x, y=y), size=8, shape=3, color="black") +
-          geom_point(data=dfembed, aes(x=x1, y=x2, color=as_factor(y))) + 
-          geom_segment(data=wdf, aes(x=x0, y=y0, xend=x, yend=y, color="w"), 
-                       arrow = arrow(length=unit(0.15, "inches")), color="darkred", size=1)
-  }
-  p + 
+  ggplot(data=df) + 
+    geom_point(aes(x=x1, y=x2, color=as_factor(x$y))) +
     labs(color="Class", title="FDA-Embedded Dataset", x="X1", y="X2") + 
     theme(plot.title=element_text(hjust=0.5, size=20))
 }
@@ -200,6 +177,7 @@ try it
 X_fda <- X[, -1]
 plot(fda(X_fda, y))
 ```
+
 
 
 # Logistic Regression
