@@ -7,7 +7,12 @@ header-includes:
 - \usepackage{amsmath}
 - \usepackage{bm}
 ---
-
+\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1}}}
+\newcommand{\vbeta}{\vect{\beta}}
+\newcommand{\vx}{\vect{x}}
+\newcommand{\vy}{\vect{y}}
+\newcommand{\vzero}{\vect{0}}
+\newcommand{\vSigma}{\vect{\Sigma}}
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
 ```
@@ -26,6 +31,9 @@ install_github("alessio-b-zak/sc1-svm-example-package")
 library(cowplot)
 library(reshape2)
 library(alessiosvm)
+install_github("MauroCE/LogisticRegression")
+library(LogisticRegression)
+library(gridExtra)
 ```
 
 # Dataset
@@ -490,6 +498,170 @@ predictions_naive <- predict(model_naive,as.matrix(test_data))
 
 confusion_plot(test_classes,predictions_naive)
 ```
+
+# Logistic Regression
+### Accuracy function
+```{r}
+calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
+```
+
+### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
+```{r}
+Xtrain <- as.matrix(cbind(1, training_data))
+Xtest  <- as.matrix(cbind(1, test_data))
+# MAP, BFGS
+lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost="MAP", method="BFGS")
+yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
+acc_map_bfgs <- calc_accuracy(test_classes, yhat_map_bfgs)
+# MAP, NEWTON
+lr_map_nm <- logistic_regression(Xtrain, training_classes, cost="MAP", method="NEWTON", niter=250)
+yhat_map_nm <- predict(lr_map_nm, Xtest)
+acc_map_nm <- calc_accuracy(test_classes, yhat_map_nm)
+# MAP, GRADIENT ASCENT
+lr_map_ga <- logistic_regression(Xtrain, training_classes, cost="MAP", method="GA", niter=1000)
+yhat_map_ga <- predict(lr_map_ga, Xtest)
+acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
+```
+
+### Maximum Likelihood Estimation with BFGS, Newton's Method and Gradient Ascent
+
+```{r}
+# MLE, BFGS
+lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost="MLE", method="BFGS")
+yhat_mle_bfgs <- predict(lr_mle_bfgs, Xtest)
+acc_mle_bfgs <- calc_accuracy(test_classes, yhat_mle_bfgs)
+# MLE, NEWTON
+lr_mle_nm <- logistic_regression(Xtrain, training_classes, cost="MLE", method="NEWTON", niter=250)
+yhat_mle_nm <- predict(lr_mle_nm, Xtest)
+acc_mle_nm <- calc_accuracy(test_classes, yhat_mle_nm)
+# MLE, GRADIENT ASCENT
+lr_mle_ga <- logistic_regression(Xtrain, training_classes, cost="MLE", method="GA", niter=1000)
+yhat_mle_ga <- predict(lr_mle_ga, Xtest)
+acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
+```
+
+### Combine results in a single matrix
+
+```{r}
+# put everything together into a nice table
+results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
+                           acc_map_bfgs, acc_map_nm, acc_map_ga), 
+                         dimnames=list(c("BFGS", "NM", "GA"), c("MLE", "MAP")), 
+                         nrow=3, ncol=2)
+results <- data.frame(results_matrix)
+results
+```
+
+### Random-Walk Metropolis-Hastings
+```{r}
+rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
+    # Set current z to the initial point and calculate its log target to save computations
+    z  <- start    # It's a column vector
+    pz <- logtarget(start)
+    # create vector deciding iterations where we record the samples
+    store <- seq(from=(1+burnin), to=niter, by=thinning)
+    #n_samples <- (niter - burnin) %/% thinning
+    # Generate matrix containing the samples. Initialize first sample with the starting value
+    samples <- matrix(0, nrow=length(store), ncol=nrow(start))
+    samples[1, ] <- start
+    # Generate uniform random numbers in advance, to save computation. Take logarithm?
+    log_u <- log(runif(niter))
+    # Proposal is a multivariate standard normal distribution. Generate samples and
+    # later on use linearity property of Gaussian distribution
+    vcov <- diag(nrow(start)) %*% vcov
+    normal_shift <- mvrnorm(n=niter, mu=c(0,0,0), Sigma=vcov)
+    for (i in 2:niter){
+        # Sample a candidate
+        candidate <- z + normal_shift[i, ]
+        # calculate log target of candidate and store it in case it gets accepted
+        p_candidate <- logtarget(candidate)
+        # use decision rule explained in blog posts
+        if (log_u[i] <= p_candidate - pz){
+            # Accept!
+            z  <- candidate
+            pz <- p_candidate
+        }
+        # Finally add the sample to our matrix of samples
+        if (i %in% store) samples[which(store==i), ] <- z
+    }
+    return(samples)
+}
+```
+
+### Log posterior using the 2 dimensional data
+```{r}
+# add a column of 1 for bias
+Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
+# up to normalizing constant
+log_posterior_unnormalized <- function(beta){
+    log_prior      <- -0.5*sum(beta^2)
+    log_likelihood <- -sum(log(1 + exp((1 - 2*training_classes) * (Xrwmh %*% beta))))
+    return(log_prior + log_likelihood)
+}
+```
+
+### Start Optimization at the Mode
+```{r}
+# To start the algorithm more efficiently, start from MAP estimate
+optim_results <- optim(c(0,0,0), function(x) - log_posterior_unnormalized(x), method="BFGS", hessian=TRUE)
+start <- matrix(optim_results$par)
+# Use inverse of approximate hessian matrix as vcov of normal proposal
+vcov  <- solve(optim_results$hessian)
+```
+
+### Set settings
+```{r}
+niter <- 50000
+thinning <- 1
+burnin <- 0
+samples <- rwmh_multivariate_log(start, niter, log_posterior_unnormalized, vcov, thinning, burnin)
+```
+
+### Plot samples
+```{r}
+samplesdf <- data.frame(samples) %>% mutate(iterations=row_number())
+trace1 <- ggplot(data=samplesdf, aes(x=iterations, y=X1)) + geom_line()
+trace2 <- ggplot(data=samplesdf, aes(x=iterations, y=X2)) + geom_line()
+trace3 <- ggplot(data=samplesdf, aes(x=iterations, y=X3)) + geom_line()
+grid.arrange(trace1, trace2, trace3, ncol=1)
+```
+
+### Histogram of Samples
+```{r}
+hist1 <- ggplot(data=samplesdf, aes(x=X1, stat(density))) + 
+  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
+hist2 <- ggplot(data=samplesdf, aes(x=X2, stat(density))) + 
+  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
+hist3 <- ggplot(data=samplesdf, aes(x=X3, stat(density))) + 
+  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
+grid.arrange(hist1, hist2, hist3, ncol=1)
+```
+
+### plot line I guess
+```{r}
+samples_to_select <- 200
+samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
+# Calculate slope and intercept for those samples. Then calculate x2 from x1
+linecoefs <- cbind(-samples_subset[, 2]/samples_subset[, 3], - samples_subset[, 1] / samples_subset[, 3])
+x2_vals <- apply(linecoefs, 1, function(row) Xrwmh[, 2]*row[1] + row[2])
+# Store x2 values together with x1 values from X. Then melt to plot all lines 
+dfsample_lines <- data.frame(x1=Xrwmh[, 2], x2_vals) %>% 
+  gather("key", "value", -x1)
+# replace diagnosis 
+data <- pca_reduced_training_data %>% mutate(training_classes=training_classes)
+# Create dataframe containing values for the MAP line
+dfmap <- data.frame(x1=Xrwmh[, 2], y=(-start[2, ]/start[3, ])*Xrwmh[, 2] + (-start[1, ]/start[3, ]))
+ggplot() +
+  geom_point(data=data, aes(x=X1, y=X2, color=as.factor(training_classes))) +    # Dataset scatter plot
+  coord_cartesian(xlim=c(-550, -300), ylim=c(-550, -300)) + 
+  geom_line(data=dfsample_lines, aes(x=x1, y=value, group=key), alpha=0.1, color="grey50") +                     
+  geom_line(data=dfmap, aes(x=x1, y=y), color="black") +  # MAP line
+  labs(color="Class", title="Sample Decision Boundaries") + 
+  theme(plot.title=element_text(hjust=0.5, size=20))
+```
+
+
+
 
 Merge all predictions
 ```{r}
