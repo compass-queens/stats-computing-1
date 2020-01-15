@@ -18,6 +18,12 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
 ```
 
 ```{r, include=FALSE}
+install_github("alessio-b-zak/sc1-svm-example-package")
+install_github("MauroCE/LogisticRegression")
+install_github("andreabecsek/NaiveBayes")
+library(alessiosvm)
+library(LogisticRegression)
+library(NaiveBayes)
 library(ggplot2)
 library(magrittr)
 library(dplyr)
@@ -27,16 +33,12 @@ library(readr)
 library(devtools)
 library(tsne)
 library(devtools)
-install_github("alessio-b-zak/sc1-svm-example-package")
 library(ggpubr)
 library(reshape2)
-library(alessiosvm)
-install_github("MauroCE/LogisticRegression")
-library(LogisticRegression)
 library(gridExtra)
 ```
 
-```{r}
+```{r  echo=FALSE}
 theme_set(theme_minimal())
 ```
 
@@ -48,19 +50,25 @@ The dataset consists of $569$ images which have been processed as described and 
 The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
 
 
-TODO: describe
+# Exploratory analysis
+
 
 ```{r}
 data <- read_csv("../data/data.csv")
-glimpse(data)
-colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m','concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se','texture_se', 'perim_se','area_se','smooth_se','compact_se','concav_se','concav_pt_se','symmetry_se','frac_dim_se','radius_w','texture_w', 'perim_w','area_w','smooth_w','compact_w','concav_w','concav_pt_w','symmetry_w','frac_dim_w')
+print(glimpse(data))
+colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m',
+                          'concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se',
+                          'texture_se','perim_se','area_se','smooth_se','compact_se',
+                          'concav_se','concav_pt_se','symmetry_se','frac_dim_se','radius_w',
+                          'texture_w','perim_w','area_w','smooth_w','compact_w','concav_w',
+                          'concav_pt_w','symmetry_w','frac_dim_w')
 ```
 
-#Dataset Preprocessing Visualisation and Exploration
-
+Check for missing values in every column.
 ```{r}
 colSums(is.na(data))
 ```
+
 
 
 ```{r}
@@ -92,7 +100,6 @@ sum(is.na(data))
 ```{r}
 training_data <- train[2:dim(train)[2]] 
 training_classes <- train[1] 
-
 test_data <- test[2:dim(test)[2]] 
 test_classes <- test[1] 
 ```
@@ -186,14 +193,14 @@ pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_
 ggplot(data=pca_reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
 ```
   
-# tSNE 
-#TODO: try different perplexity parameters
-#```{r}
-#reduced_training_data <- tsne::tsne(training_data)
-#
-#reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes))
-#ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
-#```
+<!-- # tSNE  -->
+<!-- #TODO: try different perplexity parameters -->
+<!-- #```{r} -->
+<!-- #reduced_training_data <- tsne::tsne(training_data) -->
+<!-- # -->
+<!-- #reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes)) -->
+<!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
+<!-- #``` -->
 
   - Correlation Feature Selection
   - LDA
@@ -309,7 +316,6 @@ $$
 b = \text{mean}(\sum\limits_{i=0}^{k} y_{i} - w \cdot x_{i}) \, . \, \forall \, i . 0 < \lambda_{i} < C
 $$
 Which can be made as functions in R as so:
-
 ```{r}
 calculate_b <- function(w, X, y, a, C) {
   ks <- sapply(a, function(x){return(x > 0 && x < C)})
@@ -474,11 +480,6 @@ pred <- apply(probs, 1, which.max)
 ```
 
 ## Fit model to dataset
-```{r}
-install_github("andreabecsek/NaiveBayes")
-library(NaiveBayes)
-```
-
 
 ```{r}
 levels(training_classes$diagnosis) <- c(0,1)
@@ -494,14 +495,10 @@ Fit the Naive Bayes model to the data, calculate predictions and check the accur
 ```{r}
 model_naive <- naive_bayes(training_data,training_classes)
 
-predictions_naive <- predict(model_naive,as.matrix(test_data))
+pred_naive <- predict(model_naive,as.matrix(test_data))
 
-confusion_plot(test_classes,predictions_naive)
+confusion_plot(test_classes,pred_naive)
 ```
-
-<<<<<<< HEAD
-# Conclusion
-=======
 
 # Logistic Regression
 ### Mathematical Setting
@@ -695,12 +692,12 @@ ggplot() +
 
 
 
-
+# Conclusion
 
 Merge all predictions
 ```{r}
 id <- seq(length(id_test))
-all_predictions <- cbind(id,numeric_test_labels,predictions_naive,predictions_svm)
+all_predictions <- cbind(id,numeric_test_labels,pred_naive,pred_svm)
 colnames(all_predictions) <- c('id','actual','naive','svm')
 all_predictions[all_predictions==-1] <-0
 all_predictions %<>% as.data.frame()
@@ -714,7 +711,6 @@ errors <- all_predictions %>%
   dplyr::select(-'actual')
 ```
 
-
 ```{r}
 a <- errors %>% 
   melt(id='id')
@@ -723,9 +719,3 @@ ggplot(a,aes(x=id,y=variable,fill=value))+
   geom_raster()+
   theme_minimal()
 ```
-
-#Conclusion
-  - Evaluation of results
-  - Discuss outliers
-  
-TODO: create outlier plot
