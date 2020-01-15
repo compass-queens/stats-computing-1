@@ -380,7 +380,10 @@ pca_reduced_prediction_fn <- function(x) {
 ```
  
 ```{r}
-
+pca_reduced_test_data <- t(apply(as.matrix(test_data),1, function(x) x %*% pca_result$reduction_matrix))
+```
+ 
+```{r}
 pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 accuracy_calc(numeric_test_labels, pred_svm)
 ```
@@ -492,6 +495,16 @@ pred_naive <- predict(model_naive,as.matrix(test_data))
 calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
 
 acc_naive <- calc_accuracy(test_classes,pred_naive)
+acc_naive
+```
+
+Fit the model to the PCA-reduced dataset.
+```{r}
+model_naive_pca <- naive_bayes(pca_result$reduced_data,training_classes)
+
+pred_naive_pca <- predict(model_naive_pca,pca_reduced_test_data)
+
+acc_naive_pca <- calc_accuracy(test_classes,pred_naive_pca)
 acc_naive
 ```
 
