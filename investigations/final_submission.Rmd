@@ -599,36 +599,27 @@ In addition, we can pre-calculate all the normal and uniform samples and just ac
 ```{r RWMH definition}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
     # Set current z to the initial point and calculate its log target to save computations
-    z  <- start    # It's a column vector
-    pz <- logtarget(start)
+    z  <- start; pz <- logtarget(start)
     # create vector deciding iterations where we record the samples
     store <- seq(from=(1+burnin), to=niter, by=thinning)
-    #n_samples <- (niter - burnin) %/% thinning
     # Generate matrix containing samples. Initialize with the starting value
     samples <- matrix(0, nrow=length(store), ncol=nrow(start))
     samples[1, ] <- start
     # Generate uniform random numbers in advance, to save computation. Log them.
     log_u <- log(runif(niter))
-    # Proposal is a multivariate standard normal distribution. Generate samples and
-    # later on use linearity property of Gaussian distribution
+    # Proposal is a standard MVN. Generate samples and use linearity later
     vcov <- diag(nrow(start)) %*% vcov
     normal_shift <- mvrnorm(n=niter, mu=c(0,0,0), Sigma=vcov)
     for (i in 2:niter){
-        # Sample a candidate
+        # Sample a candidate and calculate log density there
         candidate <- z + normal_shift[i, ]
-        # calculate log target of candidate and store it in case it gets accepted
         p_candidate <- logtarget(candidate)
-        # use decision rule explained in blog posts
-        if (log_u[i] <= p_candidate - pz){
-            # Accept!
-            z  <- candidate
-            pz <- p_candidate
+        if (log_u[i] <= p_candidate - pz){ # Modify decision rule with bijection
+            z  <- candidate; pz <- p_candidate
         }
         # Finally add the sample to our matrix of samples
         if (i %in% store) samples[which(store==i), ] <- z
     }
-    # Finally add the sample to our matrix of samples
-    if (i %in% store) samples[which(store == i), ] <- z
   return(samples)
 }
 ```
