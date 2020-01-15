@@ -5,6 +5,7 @@ date: "13 January 2020"
 output: pdf_document
 urlcolor: blue
 header-includes:
+- \usepackage{algorithm2e}
 - \usepackage{amsmath}
 - \usepackage{bm}
 ---
@@ -14,7 +15,8 @@ header-includes:
 \newcommand{\vy}{\vect{y}}
 \newcommand{\vzero}{\vect{0}}
 \newcommand{\vSigma}{\vect{\Sigma}}
-
+\newcommand{\vtheta}{\vect{\theta}}
+\newcommand{\uniform}{\mathcal{U}(0, 1)}
 ```{r, include=FALSE}
 library(ggplot2)
 library(magrittr)
@@ -613,12 +615,28 @@ kable(results)
 ```
 
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
-Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been
-been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D.
+Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D and then sample from the 
+(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
 In particular, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. 
 To make it more efficient we can work with the log posterior and change the decision rule. I
-In addition, we can pre-calculate all the normal and uniform samples and just access them later. This will allow us to then sample from the 
-(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
+In addition, we can pre-calculate all the normal and uniform samples and just access them later. The full algorithm that we will be using is as follows
+
+\RestyleAlgo{boxruled}
+\begin{algorithm}[ht]
+  \caption{Metropolis-Hastings}
+  Set starting value $\vbeta_0\leftarrow\vbeta_{\text{MAP}}$. \\
+  \noindent Sample from standard MVNs $\vect{n}_1, \ldots, \vect{n}_N \sim N(\vzero, H^{-1}(\vbeta_{MAP}))$. \\
+  \noindent Sample from Uniform and take the log $u_1', \ldots, u_N'\sim \uniform$ and $u_i := \log(u_i')$.\\
+  \noindent \textbf{for} $i=1,2,\ldots,N$ \textbf{do}:\\
+  \noindent \qquad Draw a sample from the proposal distribution $\vbeta^*_i \leftarrow \vbeta_i + \vect{n}_i$\\
+  \noindent \qquad \textbf{if} $u_i \leq \log p(\vbeta^*_i) - \log p(\vbeta_i)$: \\
+  \noindent \qquad \qquad Accept candidate $\vbeta_i \leftarrow \vbeta^*_i$ \\
+  \noindent \qquad \textbf{else}:\\
+  \noindent \qquad \qquad Reject $\vbeta^*_i$ and use the value of $\vbeta_i$ as the realization of $\vbeta_{i+1}$.\\
+  \noindent \qquad \textbf{end}\\
+  \noindent \textbf{end}  
+\end{algorithm}
+
 
 ```{r RWMH definition}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
