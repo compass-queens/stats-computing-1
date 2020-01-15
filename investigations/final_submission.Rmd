@@ -157,7 +157,16 @@ corrplot(corr, method = "circle", order = "hclust", tl.col = "black")
 
 ## PCA
 
-Code
+For data of a non-trivial dimensionality it can be difficult to know where to begin with the modelling process as we may not have an intuitive idea of the underlying structure in our code. One such method of visualising the data in a lower space is principal component analysis (PCA). PCA aims to produce a set of linearly uncorrelated variables from our original set of variables of a reduced size. It does this by first taking the dataset represented as a matrix:
+
+$$
+X = \begin{pmatrix}
+x_{1}^{T} \\
+\vdots \\
+x_{2}^{T}
+\end{pmatrix}
+$$
+then we form a matrix normalised by the standard score by subtracting the column means from every column and dividing every column by the standard deviation for that column as in:
 ```{r}
 normalise_z <- function(X) {
   mean_cols <- colMeans(X)
@@ -170,8 +179,22 @@ normalise_z <- function(X) {
   }))
   return(normalised_X)
 }
+```
+Giving us:
+$$
+Z = \begin{pmatrix} 
+\frac{x_{11} - \mu_{1}}{\sigma_{1}} & ... & \frac{x_{1d} - \mu_{d}}{\sigma{d}} \\
+\vdots & \vdots & \vdots \\
+\frac{x_{n1} - \mu_{1}}{\sigma_{1}} & ... & \frac{x_{nd} - \mu_{d}}{\sigma{d}} \\
+\end{pmatrix}
+$$
+Multiplying this by its transpose gives us the correlation matrix where the entry $\rho_{ij}$ is the correlation between observation $i$ and observation $j$. We can take the eigendecomposition of this matrix product to give us:
 
-
+$$
+Z^{T}Z = P \,\Sigma^{-1}P^{T}
+$$
+Where we assume that the diagonal $\Sigma$ is ordered by size. The eigenvectors corresponding to the largest eigenvalues represent the combinations of features which account for the highest variance. If we wish to visualise at dimension $k < d$ we can simply take the top $k$ eigenvectors as a matrix and multiply our data by this visualise our data in the reduced space. Code that does this can be found below.
+```{r}
 pca <- function(X, number_components_keep) {
   normalised_X <- normalise_z(X)
 
@@ -187,8 +210,10 @@ pca <- function(X, number_components_keep) {
 }
 ```
 
-Apply to dataset
-```{r}
+
+When applying this to the dataset and keeping 2 components the following plot results:
+
+```{r, echo=FALSE}
 pca_result <- pca(as.matrix(training_data), 2)
 pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
 
@@ -205,8 +230,7 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 <!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
 <!-- #``` -->
 
-  - Correlation Feature Selection
-  - LDA
+As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
   
 \newpage
 
