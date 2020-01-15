@@ -529,15 +529,17 @@ $$
 $$
 
 ## Implementation
-First, we need to add a column of $1$s to the design matrix so that we can fit the bias coefficient.
-```{r train test logistic regression}
+Notice that differently from the methods used above, Logistic Regression requires our data to have a 
+constant feature of $1$s in order to fit the bias coefficient. 
+```{r train test logistic regression, echo=FALSE}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest <- as.matrix(cbind(1, test_data))
 ```
+We've implemented from scratch Newton's Method and Gradient Ascent for both Maximum Likelihood Estimation
+and Maximum-A-Posteriori, with the formulas shown above. In addition, we've used the BFGS implementation 
+provided by the R `optim` function. 
 
-### Maximum a Posteriori
-We implement BFGS, Newton's Method and Gradient Ascent.
-```{r MAP logistic regression}
+```{r MAP logistic regression, echo=FALSE}
 # MAP, BFGS
 map_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
                                 method = "BFGS")
@@ -555,9 +557,7 @@ yhat_map_ga <- predict(map_ga, Xtest)
 acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
-### Maximum Likelihood Estimation
-Similarly, we also implement the same algorithms for Maximum Likelihood Estimation.
-```{r MLE logistic regression}
+```{r MLE logistic regression, echo=FALSE}
 # MLE, BFGS
 mle_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
                                 method = "BFGS")
@@ -574,10 +574,8 @@ mle_ga <- logistic_regression(Xtrain, training_classes, cost = "MLE",
 yhat_mle_ga <- predict(mle_ga, Xtest)
 acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
-
-### Comparing Cost Functions and Optimization Methods
 Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
-```{r MAP and MLE results logistic regression}
+```{r MAP and MLE results logistic regression, echo=FALSE}
 # put everything together into a nice table
 results_matrix <- matrix(c(
   acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
