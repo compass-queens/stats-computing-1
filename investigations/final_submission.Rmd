@@ -675,7 +675,7 @@ samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
 
 We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
 
-```{r}
+```{r, echo=FALSE}
 samplesdf <- data.frame(samples) %>% mutate(iterations=row_number())
 trace1 <- ggplot(data=samplesdf, aes(x=iterations, y=X1)) + geom_line()
 trace2 <- ggplot(data=samplesdf, aes(x=iterations, y=X2)) + geom_line()
@@ -685,7 +685,7 @@ grid.arrange(trace1, trace2, trace3, ncol=1)
 
 Plotting the histograms of the samples for each coordinate of the parameter vector shows that RWMH is indeed sampling correctly.
 
-```{r}
+```{r, echo=FALSE}
 hist1 <- ggplot(data=samplesdf, aes(x=X1, stat(density))) + 
   geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
 hist2 <- ggplot(data=samplesdf, aes(x=X2, stat(density))) + 
@@ -697,7 +697,7 @@ grid.arrange(hist1, hist2, hist3, ncol=1)
 
 The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
 
-```{r}
+```{r, echo=FALSE}
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
 # Calculate slope and intercept for those samples. Then calculate x2 from x1
