@@ -511,7 +511,7 @@ acc_naive
 \newpage
 
 # Logistic Regression
-### Mathematical Setting
+## Mathematical Setting
 Let $Y_i\mid \vx_i \sim \text{Bernoulli}(p_i)$ with $p_i = \sigma(\vx_i^\top \vbeta)$ where $\sigma(\cdot)$ is the **sigmoid function**. The joint log-likelihood is given by
 $$
 \ln p(\vy\mid \vbeta) = \sum_{i=1}^n y_i \ln(p_i) + (1 - y_i)\ln(1 - p_i)=-\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
@@ -530,10 +530,6 @@ We can introduce an isotropic Gaussian prior on **all** the coefficients $p(\vbe
 $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
-Often we don't want to regularize the intercept, future work could look into placing an isotropic Gaussian prior on $\vbeta_{1:p-1}:=(\beta_1, \ldots, \beta_{p-1})$ and instead we place a uniform distribution on $\beta_0$, which doesn't depend on $\beta_0$. This would leads to 
-$$
-\min_{\vbeta} \sigma_{\vbeta_{1:p-1}}^2\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta_{1:p-1}^\top\vbeta_{1:p-1}
-$$
 
 ### Gradient Ascent (MLE, No Regularization)
 Updates take the form
@@ -541,10 +537,42 @@ $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
 
-### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
+### Gradient Ascent (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
+$$
+
+### Newton's Method (MLE, No Regularization)
+The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
+$$
+In practice we would solve the corresponding system for $\vect{d}$
+$$
+(X^\top D X)\vect{d}_k = \alpha X^\top(\vy - \sigma(X\vbeta_k))
+$$
+and then perform the update
+$$
+\vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
+$$
+
+### Newton's Method (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
+$$
+
+## Implementation
+First, we need to add a column of $1$s to the design matrix so that we can fit the bias coefficient.
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest  <- as.matrix(cbind(1, test_data))
+```
+
+### Maximum a Posteriori
+We implement BFGS, Newton's Method and Gradient Ascent.
+```{r}
 # MAP, BFGS
 lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost="MAP", method="BFGS")
 yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
@@ -559,8 +587,8 @@ yhat_map_ga <- predict(lr_map_ga, Xtest)
 acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
-### Maximum Likelihood Estimation with BFGS, Newton's Method and Gradient Ascent
-
+### Maximum Likelihood Estimation
+Similarly, we also implement the same algorithms for Maximum Likelihood Estimation.
 ```{r}
 # MLE, BFGS
 lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost="MLE", method="BFGS")
@@ -576,8 +604,8 @@ yhat_mle_ga <- predict(lr_mle_ga, Xtest)
 acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
 
-### Combine results in a single matrix
-
+### Comparing Cost Functions and Optimization Methods
+Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
 ```{r}
 # put everything together into a nice table
 results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
@@ -588,7 +616,9 @@ results <- data.frame(results_matrix)
 results
 ```
 
-### Random-Walk Metropolis-Hastings
+### Random-Walk Metropolis-Hastings Implementation on Reduced Data
+Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
+
 ```{r}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
     # Set current z to the initial point and calculate its log target to save computations
@@ -624,20 +654,20 @@ rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burni
 }
 ```
 
-### Log posterior using the 2 dimensional data
+Now we can add a column of $1$s to the reduced dataset created by PCA so that we can run Logistic Regression on the reduced data.
 ```{r}
-# add a column of 1 for bias
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
+```
+
+We run logistic regression using the BFGS optimization method on MAP. Since we need the Hessian matrix for sampling later on, we simply use the `optim` function on the unnormalized version of the posterior distribution for logistic regression.
+
+```{r}
 # up to normalizing constant
 log_posterior_unnormalized <- function(beta){
     log_prior      <- -0.5*sum(beta^2)
     log_likelihood <- -sum(log(1 + exp((1 - 2*training_classes) * (Xrwmh %*% beta))))
     return(log_prior + log_likelihood)
 }
-```
-
-### Start Optimization at the Mode
-```{r}
 # To start the algorithm more efficiently, start from MAP estimate
 optim_results <- optim(c(0,0,0), function(x) - log_posterior_unnormalized(x), method="BFGS", hessian=TRUE)
 start <- matrix(optim_results$par)
@@ -645,16 +675,16 @@ start <- matrix(optim_results$par)
 vcov  <- solve(optim_results$hessian)
 ```
 
-### Set settings
+We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
+
 ```{r}
-niter <- 50000
-thinning <- 1
-burnin <- 0
-samples <- rwmh_multivariate_log(start, niter, log_posterior_unnormalized, vcov, thinning, burnin)
+samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
+                                 vcov, thinning=1, burnin=0)
 ```
 
-### Plot samples
-```{r}
+We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
+
+```{r, echo=FALSE}
 samplesdf <- data.frame(samples) %>% mutate(iterations=row_number())
 trace1 <- ggplot(data=samplesdf, aes(x=iterations, y=X1)) + geom_line()
 trace2 <- ggplot(data=samplesdf, aes(x=iterations, y=X2)) + geom_line()
@@ -662,8 +692,9 @@ trace3 <- ggplot(data=samplesdf, aes(x=iterations, y=X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol=1)
 ```
 
-### Histogram of Samples
-```{r}
+Plotting the histograms of the samples for each coordinate of the parameter vector shows that RWMH is indeed sampling correctly.
+
+```{r, echo=FALSE}
 hist1 <- ggplot(data=samplesdf, aes(x=X1, stat(density))) + 
   geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
 hist2 <- ggplot(data=samplesdf, aes(x=X2, stat(density))) + 
@@ -673,8 +704,9 @@ hist3 <- ggplot(data=samplesdf, aes(x=X3, stat(density))) +
 grid.arrange(hist1, hist2, hist3, ncol=1)
 ```
 
-### plot line I guess
-```{r}
+The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
+
+```{r, echo=FALSE}
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
 # Calculate slope and intercept for those samples. Then calculate x2 from x1
@@ -694,6 +726,12 @@ ggplot() +
   geom_line(data=dfmap, aes(x=x1, y=y), color="black") +  # MAP line
   labs(color="Class", title="Sample Decision Boundaries") + 
   theme(plot.title=element_text(hjust=0.5, size=20))
+```
+
+Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
+```{r}
+lr_embedded_preds <- round(1.0 / (1.0 + exp(-cbind(1, as.matrix(embedded_test_data[, c(1, 2)])) %*% start)))
+calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
 \newpage
