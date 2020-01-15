@@ -18,12 +18,6 @@ knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
 ```
 
 ```{r, include=FALSE}
-install_github("alessio-b-zak/sc1-svm-example-package")
-install_github("MauroCE/LogisticRegression")
-install_github("andreabecsek/NaiveBayes")
-library(alessiosvm)
-library(LogisticRegression)
-library(NaiveBayes)
 library(ggplot2)
 library(magrittr)
 library(dplyr)
@@ -36,6 +30,12 @@ library(devtools)
 library(ggpubr)
 library(reshape2)
 library(gridExtra)
+install_github("alessio-b-zak/sc1-svm-example-package")
+install_github("MauroCE/LogisticRegression")
+install_github("andreabecsek/NaiveBayes")
+library(alessiosvm)
+library(LogisticRegression)
+library(NaiveBayes)
 ```
 
 ```{r  echo=FALSE}
@@ -55,7 +55,6 @@ The aim of this report is to implement a number of classification algorithms, us
 
 ```{r}
 data <- read_csv("../data/data.csv")
-print(glimpse(data))
 colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m',
                           'concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se',
                           'texture_se','perim_se','area_se','smooth_se','compact_se',
@@ -68,8 +67,6 @@ Check for missing values in every column.
 ```{r}
 colSums(is.na(data))
 ```
-
-
 
 ```{r}
 data %<>% mutate_at(vars(diagnosis), factor)
@@ -104,14 +101,6 @@ test_data <- test[2:dim(test)[2]]
 test_classes <- test[1] 
 ```
 
-```{r echo=FALSE}
-corr <- training_data[,-1] %>% 
-          cor() %>% 
-           round(1)
-
-corrplot(corr, method='circle',order='hclust',tl.col = "black")
-```
-
 ```{r fig.height=40, fig.width=30, echo=FALSE}
 train %>% 
   group_by(diagnosis) %>% 
@@ -143,18 +132,15 @@ g2<-ggplot(test_classes,aes(x=diagnosis,fill=diagnosis))+
 ggarrange(g1,g2)
 ```
 
-```{r}
-confusion_plot <- function(actual,predicted){
-  confusion_matrix <- as.data.frame(table(actual,predicted))
-  g <-ggplot(confusion_matrix,aes(x=actual,y=predicted))+
-    geom_tile(aes(fill=Freq))+
-    geom_text(aes(label=sprintf("%1.0f", Freq)),color="white",fontface="bold")+
-   labs(x="Actual class",y="Predicted class")+
-    theme_minimal()
-  return(g)
-}
+```{r echo=FALSE}
+corr <- training_data[,-1] %>% 
+          cor() %>% 
+           round(1)
+
+corrplot(corr, method='circle',order='hclust',tl.col = "black")
 ```
 
+\newpage
 # Dimensionality Reduction and Feature Selection
 
 ## PCA
@@ -204,8 +190,14 @@ ggplot(data=pca_reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=
 
   - Correlation Feature Selection
   - LDA
+  
+\newpage
 
 # Classification
+
+add list of methods+measure 
+
+## SVM
 To solve the problem of finding a SVM like classifier for non-separable data we must permit a certain number of points to violate the boundaries set however this number and the amount they violate the constraints by must be as small as possible. To formulate this we introduce a variable $\epsilon_{i}$ for each data point into the objective functions and the constraints leading to the optimisation problem:
 
 $$
@@ -336,8 +328,6 @@ recover_w <- function(a, y, X){
 
 We can see the results of using the dual regression below
 
-# SVM
-  
 ```{r}
 soft_margin_svm_plotter <- function(w, b) {
   plotter <- function(x) {
@@ -391,8 +381,8 @@ pca_reduced_prediction_fn <- function(x) {
  
 ```{r}
 
-predictions_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
-accuracy_calc(numeric_test_labels, predictions_svm)
+pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
+accuracy_calc(numeric_test_labels, pred_svm)
 ```
 
 ```{r}
@@ -404,7 +394,7 @@ ggplot(embedded_test_data, aes(x=as.numeric(X1), y=as.numeric(X2))) +
   stat_function(fun=svm_plotter)
 ```
 
-
+\newpage
 # Naive Bayes
 ## Mathematical setting
 
@@ -497,8 +487,15 @@ model_naive <- naive_bayes(training_data,training_classes)
 
 pred_naive <- predict(model_naive,as.matrix(test_data))
 
-confusion_plot(test_classes,pred_naive)
+# confusion_plot(test_classes,pred_naive)
+
+calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
+
+acc_naive <- calc_accuracy(test_classes,pred_naive)
+acc_naive
 ```
+
+\newpage
 
 # Logistic Regression
 ### Mathematical Setting
@@ -530,10 +527,6 @@ Updates take the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
-### Accuracy function
-```{r}
-calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
-```
 
 ### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
 ```{r}
@@ -678,11 +671,11 @@ x2_vals <- apply(linecoefs, 1, function(row) Xrwmh[, 2]*row[1] + row[2])
 dfsample_lines <- data.frame(x1=Xrwmh[, 2], x2_vals) %>% 
   gather("key", "value", -x1)
 # replace diagnosis 
-data <- pca_reduced_training_data %>% mutate(training_classes=training_classes)
+data_plot <- pca_reduced_training_data %>% mutate(training_classes=training_classes)
 # Create dataframe containing values for the MAP line
 dfmap <- data.frame(x1=Xrwmh[, 2], y=(-start[2, ]/start[3, ])*Xrwmh[, 2] + (-start[1, ]/start[3, ]))
 ggplot() +
-  geom_point(data=data, aes(x=X1, y=X2, color=as.factor(training_classes))) +    # Dataset scatter plot
+  geom_point(data=data_plot, aes(x=X1, y=X2, color=as.factor(training_classes))) +    # Dataset scatter plot
   coord_cartesian(xlim=c(-550, -300), ylim=c(-550, -300)) + 
   geom_line(data=dfsample_lines, aes(x=x1, y=value, group=key), alpha=0.1, color="grey50") +                     
   geom_line(data=dfmap, aes(x=x1, y=y), color="black") +  # MAP line
@@ -690,32 +683,42 @@ ggplot() +
   theme(plot.title=element_text(hjust=0.5, size=20))
 ```
 
-
-
+\newpage
 # Conclusion
 
 Merge all predictions
 ```{r}
 id <- seq(length(id_test))
-all_predictions <- cbind(id,numeric_test_labels,pred_naive,pred_svm)
-colnames(all_predictions) <- c('id','actual','naive','svm')
-all_predictions[all_predictions==-1] <-0
-all_predictions %<>% as.data.frame()
+all_pred <- cbind(id,numeric_test_labels,pred_naive,pred_svm)
+colnames(all_pred) <- c('id','actual','naive','svm')
+all_pred[all_pred==-1] <-0
+all_pred %<>% as.data.frame()
 ```
 
 ```{r}
-errors <- all_predictions %>% 
+confusion_plot <- function(actual,predicted){
+  confusion_matrix <- as.data.frame(table(actual,predicted))
+  g <-ggplot(confusion_matrix,aes(x=actual,y=predicted))+
+    geom_tile(aes(fill=Freq))+
+    geom_text(aes(label=sprintf("%1.0f", Freq)),color="white",fontface="bold")+
+   labs(x="Actual class",y="Predicted class")+
+    theme_minimal()
+  return(g)
+}
+```
+
+```{r}
+errors <- all_pred %>% 
   mutate(naive=naive==actual,
          svm=svm==actual,
          logistic=yhat_map_bfgs==actual) %>% 
-  dplyr::select(-'actual')
+  dplyr::select(-'actual') %>% 
+  melt(id='id')
 ```
 
+Visualize which are the observations that the models missclassify.
 ```{r}
-a <- errors %>% 
-  melt(id='id')
-
-ggplot(a,aes(x=id,y=variable,fill=value))+
+ggplot(errors,aes(x=id,y=variable,fill=value))+
   geom_raster()+
   theme_minimal()
 ```
