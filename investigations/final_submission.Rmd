@@ -30,6 +30,7 @@ library(devtools)
 library(ggpubr)
 library(reshape2)
 library(gridExtra)
+library(knitr)
 install_github("alessio-b-zak/sc1-svm-example-package")
 install_github("MauroCE/LogisticRegression")
 install_github("andreabecsek/NaiveBayes")
@@ -600,7 +601,7 @@ results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
                          dimnames=list(c("BFGS", "NM", "GA"), c("MLE", "MAP")), 
                          nrow=3, ncol=2)
 results <- data.frame(results_matrix)
-results
+kable(results)
 ```
 
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
