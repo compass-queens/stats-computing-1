@@ -210,7 +210,9 @@ pca <- function(X, number_components_keep) {
 }
 ```
 
+
 When applying this to the dataset and keeping 2 components the following plot results:
+
 ```{r, echo=FALSE}
 pca_result <- pca(as.matrix(training_data), 2)
 pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
@@ -228,8 +230,7 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 <!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
 <!-- #``` -->
 
-  - Correlation Feature Selection
-  - LDA
+As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
   
 \newpage
 
