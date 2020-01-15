@@ -498,7 +498,7 @@ acc_naive
 \newpage
 
 # Logistic Regression
-### Mathematical Setting
+## Mathematical Setting
 Let $Y_i\mid \vx_i \sim \text{Bernoulli}(p_i)$ with $p_i = \sigma(\vx_i^\top \vbeta)$ where $\sigma(\cdot)$ is the **sigmoid function**. The joint log-likelihood is given by
 $$
 \ln p(\vy\mid \vbeta) = \sum_{i=1}^n y_i \ln(p_i) + (1 - y_i)\ln(1 - p_i)=-\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right)
@@ -554,6 +554,7 @@ $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
 $$
 
+## Implementation
 ### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
