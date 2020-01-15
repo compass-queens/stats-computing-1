@@ -669,10 +669,12 @@ vcov  <- solve(optim_results$hessian)
 We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
 
 ```{r}
-samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized, vcov, thinning=1, burnin=0)
+samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
+                                 vcov, thinning=1, burnin=0)
 ```
 
-### Plot samples
+We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
+
 ```{r}
 samplesdf <- data.frame(samples) %>% mutate(iterations=row_number())
 trace1 <- ggplot(data=samplesdf, aes(x=iterations, y=X1)) + geom_line()
@@ -681,7 +683,8 @@ trace3 <- ggplot(data=samplesdf, aes(x=iterations, y=X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol=1)
 ```
 
-### Histogram of Samples
+Plotting the histograms of the samples for each coordinate of the parameter vector shows that RWMH is indeed sampling correctly.
+
 ```{r}
 hist1 <- ggplot(data=samplesdf, aes(x=X1, stat(density))) + 
   geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
@@ -692,7 +695,8 @@ hist3 <- ggplot(data=samplesdf, aes(x=X3, stat(density))) +
 grid.arrange(hist1, hist2, hist3, ncol=1)
 ```
 
-### plot line I guess
+Finally, we can plot the decision boundary found by BFGS together with the sampled lines. 
+
 ```{r}
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
