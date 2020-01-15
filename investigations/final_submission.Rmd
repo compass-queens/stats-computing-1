@@ -462,14 +462,12 @@ $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
 
-### Gradient Ascent for Maximum Likelihood Estimation
-Updates take the form
+### Gradient Ascent
+Maximum Likelihood updates take the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
-
-### Gradient Ascent for Maximum-A-Posteriori
-The update takes the form
+wheras for MAP we have
 $$
 \vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
 $$
