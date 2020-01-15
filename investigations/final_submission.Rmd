@@ -562,6 +562,7 @@ Xtest  <- as.matrix(cbind(1, test_data))
 ```
 
 ### Maximum a Posteriori
+We implement BFGS, Newton's Method and Gradient Ascent.
 ```{r}
 # MAP, BFGS
 lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost="MAP", method="BFGS")
@@ -578,7 +579,7 @@ acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
 ### Maximum Likelihood Estimation
-
+Similarly, we also implement the same algorithms for Maximum Likelihood Estimation.
 ```{r}
 # MLE, BFGS
 lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost="MLE", method="BFGS")
