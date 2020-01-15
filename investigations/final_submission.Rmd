@@ -518,19 +518,19 @@ $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
 
-### Gradient Ascent (MLE, No Regularization)
+### Gradient Ascent for Maximum Likelihood Estimation
 Updates take the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
 
-### Gradient Ascent (MAP, Ridge Regularization)
+### Gradient Ascent for Maximum-A-Posteriori
 The update takes the form
 $$
 \vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
 $$
 
-### Newton's Method (MLE, No Regularization)
+### Newton's Method for Maximum Likelihood Estimation
 The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
@@ -544,7 +544,7 @@ $$
 \vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
 $$
 
-### Newton's Method (MAP, Ridge Regularization)
+### Newton's Method for Maximum-A-Posteriori
 The update takes the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
