@@ -596,7 +596,7 @@ acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
 
 ### Comparing Cost Functions and Optimization Methods
-
+Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
 ```{r}
 # put everything together into a nice table
 results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
