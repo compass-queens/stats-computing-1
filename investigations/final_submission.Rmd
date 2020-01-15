@@ -479,7 +479,7 @@ The iterations are as follows, where for stability one can add a learning rate $
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
 $$
-In practice we would solve the corresponding system for $\vect{d}$
+In practice we would solve the corresponding system for $\vect{d}_k$
 $$
 (X^\top D X)\vect{d}_k = \alpha X^\top(\vy - \sigma(X\vbeta_k))
 $$
