@@ -517,10 +517,6 @@ We can introduce an isotropic Gaussian prior on **all** the coefficients $p(\vbe
 $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
-Often we don't want to regularize the intercept, future work could look into placing an isotropic Gaussian prior on $\vbeta_{1:p-1}:=(\beta_1, \ldots, \beta_{p-1})$ and instead we place a uniform distribution on $\beta_0$, which doesn't depend on $\beta_0$. This would leads to 
-$$
-\min_{\vbeta} \sigma_{\vbeta_{1:p-1}}^2\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta_{1:p-1}^\top\vbeta_{1:p-1}
-$$
 
 ### Gradient Ascent (MLE, No Regularization)
 Updates take the form
