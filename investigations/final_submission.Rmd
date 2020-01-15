@@ -717,8 +717,8 @@ ggplot() +
 
 Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
 ```{r}
-lr_embedde_preds <- round(1.0 / (1.0 + exp(-cbind(1, as.matrix(embedded_test_data[, c(1, 2)])) %*% start)))
-calc_accuracy(test_classes, lr_embedde_preds)
+lr_embedded_preds <- round(1.0 / (1.0 + exp(-cbind(1, as.matrix(embedded_test_data[, c(1, 2)])) %*% start)))
+calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
 \newpage
