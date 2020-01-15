@@ -528,7 +528,7 @@ $$
 \vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
 $$
 
-## Implementation
+## Implementation and Results
 Notice that differently from the methods used above, Logistic Regression requires our data to have a 
 constant feature of $1$s in order to fit the bias coefficient. 
 ```{r train test logistic regression, echo=FALSE}
@@ -589,7 +589,12 @@ kable(results)
 ```
 
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
-Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
+Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been
+been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D.
+In particular, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. 
+To make it more efficient we can work with the log posterior and change the decision rule. I
+In addition, we can pre-calculate all the normal and uniform samples and just access them later. This will allow us to then sample from the 
+(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
 
 ```{r RWMH definition}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
@@ -628,8 +633,8 @@ rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burni
 }
 ```
 
-Now we can add a column of $1$s to the reduced dataset created by PCA so that we can run Logistic Regression on the reduced data.
-```{r reduced train logistic regression}
+```{r reduced train logistic regression, echo=FALSE}
+# need to add a bias feature
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
 ```
 
