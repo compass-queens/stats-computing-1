@@ -509,24 +509,23 @@ $$
 \vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
 $$
 
-### Newton's Method for Maximum Likelihood Estimation
-The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
+### Newton's Method
+For stability, we add a learning rate, which is in practice often set to $\alpha=0.1$. The
+iterations for Maximum Likelihood take the form of
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
 $$
-In practice we would solve the corresponding system for $\vect{d}_k$
+whereas for MAP take the form 
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
+$$
+In practice, for example in MLE, we would solve the corresponding system for $\vect{d}_k$
 $$
 (X^\top D X)\vect{d}_k = \alpha X^\top(\vy - \sigma(X\vbeta_k))
 $$
 and then perform the update
 $$
 \vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
-$$
-
-### Newton's Method for Maximum-A-Posteriori
-The update takes the form
-$$
-\vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
 $$
 
 ## Implementation
