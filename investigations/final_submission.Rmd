@@ -651,11 +651,12 @@ rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burni
 ```{r reduced train logistic regression, echo=FALSE}
 # need to add a bias feature
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
+Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
 ```
 
-We run logistic regression using the BFGS optimization method on MAP. Since we need the Hessian matrix for sampling later on, we simply use the `optim` function on the unnormalized version of the posterior distribution for logistic regression.
+We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal.
 
-```{r log posterior and optim logistic regression}
+```{r log posterior and optim logistic regression, echo=FALSE}
 # up to normalizing constant
 log_posterior_unnormalized <- function(beta) {
   log_prior <- -0.5 * sum(beta^2)
@@ -670,12 +671,42 @@ start <- matrix(optim_results$par)
 vcov <- solve(optim_results$hessian)
 ```
 
-We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
-
-
-```{r samples logistic regression}
+```{r samples logistic regression, echo=FALSE}
 samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
+```
+
+```{r, echo=FALSE}
+# MLE, BFGS
+mle_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="BFGS")
+acc_mle_bfgs_r <- calc_accuracy(test_classes, predict(mle_bfgs_r, Xtest_embedded))
+# MLE, NEWTON
+mle_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="NEWTON")
+acc_mle_nm_r <- calc_accuracy(test_classes, predict(mle_nm_r, Xtest_embedded))
+# MLE, GRADIENT ASCENT
+mle_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="GA",
+                                niter=3000)
+acc_mle_ga_r <- calc_accuracy(test_classes, predict(mle_ga_r, Xtest_embedded))
+# MAP, BFGS
+map_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="BFGS")
+acc_map_bfgs_r <- calc_accuracy(test_classes, predict(map_bfgs_r, Xtest_embedded))
+# MAP, NEWTON
+map_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="NEWTON")
+acc_map_nm_r <- calc_accuracy(test_classes, predict(map_nm_r, Xtest_embedded))
+# MAP, GRADIENT ASCENT
+map_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="GA",
+                                niter=3000)
+acc_map_ga_r <- calc_accuracy(test_classes, predict(map_ga_r, Xtest_embedded))
+# nice table
+embedded_results_lr <- matrix(c(
+  acc_mle_bfgs_r, acc_mle_nm_r, acc_mle_ga_r,
+  acc_map_bfgs_r, acc_map_nm_r, acc_map_ga_r
+),
+dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
+nrow = 3, ncol = 2
+)
+embedded_results_lr <- data.frame(embedded_results_lr)
+kable(embedded_results_lr)
 ```
 
 We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
@@ -722,14 +753,6 @@ ggplot() +
   geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
   labs(color = "Class", title = "Sample Decision Boundaries") +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
-```
-
-Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
-
-```{r embedded accuracy logistic regression}
-Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
-lr_embedded_preds <- round(1.0 / (1.0 + exp(-Xtest_embedded %*% start)))
-calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
 \newpage
