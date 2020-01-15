@@ -28,9 +28,9 @@ library(ggpubr)
 library(reshape2)
 library(gridExtra)
 library(knitr)
-install_github("alessio-b-zak/sc1-svm-example-package")
-install_github("MauroCE/LogisticRegression")
-install_github("andreabecsek/NaiveBayes")
+# install_github("alessio-b-zak/sc1-svm-example-package")
+# install_github("MauroCE/LogisticRegression")
+# install_github("andreabecsek/NaiveBayes")
 library(alessiosvm)
 library(LogisticRegression)
 library(NaiveBayes)
@@ -553,19 +553,19 @@ $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
 
-### Gradient Ascent (MLE, No Regularization)
+### Gradient Ascent for Maximum Likelihood Estimation
 Updates take the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
 
-### Gradient Ascent (MAP, Ridge Regularization)
+### Gradient Ascent for Maximum-A-Posteriori
 The update takes the form
 $$
 \vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
 $$
 
-### Newton's Method (MLE, No Regularization)
+### Newton's Method for Maximum Likelihood Estimation
 The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
@@ -579,7 +579,7 @@ $$
 \vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
 $$
 
-### Newton's Method (MAP, Ridge Regularization)
+### Newton's Method for Maximum-A-Posteriori
 The update takes the form
 $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
@@ -587,54 +587,54 @@ $$
 
 ## Implementation
 First, we need to add a column of $1$s to the design matrix so that we can fit the bias coefficient.
-```{r}
+```{r train test logistic regression}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest <- as.matrix(cbind(1, test_data))
 ```
 
 ### Maximum a Posteriori
 We implement BFGS, Newton's Method and Gradient Ascent.
-```{r}
+```{r MAP logistic regression}
 # MAP, BFGS
-lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
-                                   method = "BFGS")
-yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
+map_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                                method = "BFGS")
+yhat_map_bfgs <- predict(map_bfgs, Xtest)
 acc_map_bfgs <- calc_accuracy(test_classes, yhat_map_bfgs)
 # MAP, NEWTON
-lr_map_nm <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
-                                 method = "NEWTON", niter = 250)
-yhat_map_nm <- predict(lr_map_nm, Xtest)
+map_nm <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                              method = "NEWTON", niter = 250)
+yhat_map_nm <- predict(map_nm, Xtest)
 acc_map_nm <- calc_accuracy(test_classes, yhat_map_nm)
 # MAP, GRADIENT ASCENT
-lr_map_ga <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
-                                 method = "GA", niter = 1000)
-yhat_map_ga <- predict(lr_map_ga, Xtest)
+map_ga <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                              method = "GA", niter = 1000)
+yhat_map_ga <- predict(map_ga, Xtest)
 acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
 ### Maximum Likelihood Estimation
 Similarly, we also implement the same algorithms for Maximum Likelihood Estimation.
-```{r}
+```{r MLE logistic regression}
 # MLE, BFGS
-lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
-                                   method = "BFGS")
-yhat_mle_bfgs <- predict(lr_mle_bfgs, Xtest)
+mle_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                                method = "BFGS")
+yhat_mle_bfgs <- predict(mle_bfgs, Xtest)
 acc_mle_bfgs <- calc_accuracy(test_classes, yhat_mle_bfgs)
 # MLE, NEWTON
-lr_mle_nm <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
-                                 method = "NEWTON", niter = 250)
-yhat_mle_nm <- predict(lr_mle_nm, Xtest)
+mle_nm <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                              method = "NEWTON", niter = 250)
+yhat_mle_nm <- predict(mle_nm, Xtest)
 acc_mle_nm <- calc_accuracy(test_classes, yhat_mle_nm)
 # MLE, GRADIENT ASCENT
-lr_mle_ga <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
-                                 method = "GA", niter = 1000)
-yhat_mle_ga <- predict(lr_mle_ga, Xtest)
+mle_ga <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                              method = "GA", niter = 1000)
+yhat_mle_ga <- predict(mle_ga, Xtest)
 acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
 
 ### Comparing Cost Functions and Optimization Methods
 Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
-```{r}
+```{r MAP and MLE results logistic regression}
 # put everything together into a nice table
 results_matrix <- matrix(c(
   acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
@@ -644,55 +644,57 @@ dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
 nrow = 3, ncol = 2
 )
 results <- data.frame(results_matrix)
-results
+kable(results)
 ```
 
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
 Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
 
-```{r}
-rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin) {
-  # Set current z to the initial point and calculate its log target to save computations
-  z <- start # It's a column vector
-  pz <- logtarget(start)
-  # create vector deciding iterations where we record the samples
-  store <- seq(from = (1 + burnin), to = niter, by = thinning)
-  # n_samples <- (niter - burnin) %/% thinning
-  # Generate matrix containing the samples. Initialize first sample with the starting value
-  samples <- matrix(0, nrow = length(store), ncol = nrow(start))
-  samples[1, ] <- start
-  # Generate uniform random numbers in advance, to save computation. Take logarithm?
-  log_u <- log(runif(niter))
-  # Proposal is a multivariate standard normal distribution. Generate samples and
-  # later on use linearity property of Gaussian distribution
-  vcov <- diag(nrow(start)) %*% vcov
-  normal_shift <- mvrnorm(n = niter, mu = c(0, 0, 0), Sigma = vcov)
-  for (i in 2:niter) {
-    # Sample a candidate
-    candidate <- z + normal_shift[i, ]
-    # calculate log target of candidate and store it in case it gets accepted
-    p_candidate <- logtarget(candidate)
-    # use decision rule explained in blog posts
-    if (log_u[i] <= p_candidate - pz) {
-      # Accept!
-      z <- candidate
-      pz <- p_candidate
+```{r RWMH definition}
+rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
+    # Set current z to the initial point and calculate its log target to save computations
+    z  <- start    # It's a column vector
+    pz <- logtarget(start)
+    # create vector deciding iterations where we record the samples
+    store <- seq(from=(1+burnin), to=niter, by=thinning)
+    #n_samples <- (niter - burnin) %/% thinning
+    # Generate matrix containing samples. Initialize with the starting value
+    samples <- matrix(0, nrow=length(store), ncol=nrow(start))
+    samples[1, ] <- start
+    # Generate uniform random numbers in advance, to save computation. Log them.
+    log_u <- log(runif(niter))
+    # Proposal is a multivariate standard normal distribution. Generate samples and
+    # later on use linearity property of Gaussian distribution
+    vcov <- diag(nrow(start)) %*% vcov
+    normal_shift <- mvrnorm(n=niter, mu=c(0,0,0), Sigma=vcov)
+    for (i in 2:niter){
+        # Sample a candidate
+        candidate <- z + normal_shift[i, ]
+        # calculate log target of candidate and store it in case it gets accepted
+        p_candidate <- logtarget(candidate)
+        # use decision rule explained in blog posts
+        if (log_u[i] <= p_candidate - pz){
+            # Accept!
+            z  <- candidate
+            pz <- p_candidate
+        }
+        # Finally add the sample to our matrix of samples
+        if (i %in% store) samples[which(store==i), ] <- z
     }
     # Finally add the sample to our matrix of samples
     if (i %in% store) samples[which(store == i), ] <- z
-  }
   return(samples)
 }
 ```
 
 Now we can add a column of $1$s to the reduced dataset created by PCA so that we can run Logistic Regression on the reduced data.
-```{r}
+```{r reduced train logistic regression}
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
 ```
 
 We run logistic regression using the BFGS optimization method on MAP. Since we need the Hessian matrix for sampling later on, we simply use the `optim` function on the unnormalized version of the posterior distribution for logistic regression.
 
-```{r}
+```{r log posterior and optim logistic regression}
 # up to normalizing constant
 log_posterior_unnormalized <- function(beta) {
   log_prior <- -0.5 * sum(beta^2)
@@ -709,11 +711,10 @@ vcov <- solve(optim_results$hessian)
 
 We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
 
-```{r}
-samples <- rwmh_multivariate_log(start,
-  niter = 50000, log_posterior_unnormalized,
-  vcov, thinning = 1, burnin = 0
-)
+
+```{r samples logistic regression}
+samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
+                                 vcov, thinning=1, burnin=0)
 ```
 
 We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
@@ -763,9 +764,10 @@ ggplot() +
 ```
 
 Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
-```{r}
-lr_embedded_preds <- round(1 / (1 + exp(-cbind(1,as.matrix(embedded_test_data[, c(1, 2)]))
-%*% start)))
+
+```{r embedded accuracy logistic regression}
+Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
+lr_embedded_preds <- round(1.0 / (1.0 + exp(-Xtest_embedded %*% start)))
 calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
