@@ -4,6 +4,7 @@ author: "Alessio"
 output: pdf_document
 urlcolor: blue
 header-includes:
+- \usepackage{algorithm2e}
 - \usepackage{amsmath}
 - \usepackage{bm}
 ---
@@ -13,7 +14,8 @@ header-includes:
 \newcommand{\vy}{\vect{y}}
 \newcommand{\vzero}{\vect{0}}
 \newcommand{\vSigma}{\vect{\Sigma}}
-
+\newcommand{\vtheta}{\vect{\theta}}
+\newcommand{\uniform}{\mathcal{U}(0, 1)}
 ```{r, include=FALSE}
 library(ggplot2)
 library(magrittr)
@@ -630,12 +632,28 @@ kable(results)
 ```
 
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
-Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been
-been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D.
+Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D and then sample from the 
+(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
 In particular, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. 
 To make it more efficient we can work with the log posterior and change the decision rule. I
-In addition, we can pre-calculate all the normal and uniform samples and just access them later. This will allow us to then sample from the 
-(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
+In addition, we can pre-calculate all the normal and uniform samples and just access them later. The full algorithm that we will be using is as follows
+
+\RestyleAlgo{boxruled}
+\begin{algorithm}[ht]
+  \caption{Metropolis-Hastings}
+  Set starting value $\vbeta_0\leftarrow\vbeta_{\text{MAP}}$. \\
+  \noindent Sample from standard MVNs $\vect{n}_1, \ldots, \vect{n}_N \sim N(\vzero, H^{-1}(\vbeta_{MAP}))$. \\
+  \noindent Sample from Uniform and take the log $u_1', \ldots, u_N'\sim \uniform$ and $u_i := \log(u_i')$.\\
+  \noindent \textbf{for} $i=1,2,\ldots,N$ \textbf{do}:\\
+  \noindent \qquad Draw a sample from the proposal distribution $\vbeta^*_i \leftarrow \vbeta_i + \vect{n}_i$\\
+  \noindent \qquad \textbf{if} $u_i \leq \log p(\vbeta^*_i) - \log p(\vbeta_i)$: \\
+  \noindent \qquad \qquad Accept candidate $\vbeta_i \leftarrow \vbeta^*_i$ \\
+  \noindent \qquad \textbf{else}:\\
+  \noindent \qquad \qquad Reject $\vbeta^*_i$ and use the value of $\vbeta_i$ as the realization of $\vbeta_{i+1}$.\\
+  \noindent \qquad \textbf{end}\\
+  \noindent \textbf{end}  
+\end{algorithm}
+
 
 ```{r RWMH definition}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
@@ -668,11 +686,12 @@ rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burni
 ```{r reduced train logistic regression, echo=FALSE}
 # need to add a bias feature
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
+Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
 ```
 
-We run logistic regression using the BFGS optimization method on MAP. Since we need the Hessian matrix for sampling later on, we simply use the `optim` function on the unnormalized version of the posterior distribution for logistic regression.
+We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal.
 
-```{r log posterior and optim logistic regression}
+```{r log posterior and optim logistic regression, echo=FALSE}
 # up to normalizing constant
 log_posterior_unnormalized <- function(beta) {
   log_prior <- -0.5 * sum(beta^2)
@@ -687,39 +706,66 @@ start <- matrix(optim_results$par)
 vcov <- solve(optim_results$hessian)
 ```
 
-We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
-
-
-```{r samples logistic regression}
+```{r samples logistic regression, echo=FALSE}
 samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
 ```
 
-We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
-
 ```{r, echo=FALSE}
+# MLE, BFGS
+mle_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="BFGS")
+acc_mle_bfgs_r <- calc_accuracy(test_classes, predict(mle_bfgs_r, Xtest_embedded))
+# MLE, NEWTON
+mle_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="NEWTON")
+acc_mle_nm_r <- calc_accuracy(test_classes, predict(mle_nm_r, Xtest_embedded))
+# MLE, GRADIENT ASCENT
+mle_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="GA",
+                                niter=3000)
+acc_mle_ga_r <- calc_accuracy(test_classes, predict(mle_ga_r, Xtest_embedded))
+# MAP, BFGS
+map_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="BFGS")
+acc_map_bfgs_r <- calc_accuracy(test_classes, predict(map_bfgs_r, Xtest_embedded))
+# MAP, NEWTON
+map_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="NEWTON")
+acc_map_nm_r <- calc_accuracy(test_classes, predict(map_nm_r, Xtest_embedded))
+# MAP, GRADIENT ASCENT
+map_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="GA",
+                                niter=3000)
+acc_map_ga_r <- calc_accuracy(test_classes, predict(map_ga_r, Xtest_embedded))
+# nice table
+embedded_results_lr <- matrix(c(
+  acc_mle_bfgs_r, acc_mle_nm_r, acc_mle_ga_r,
+  acc_map_bfgs_r, acc_map_nm_r, acc_map_ga_r
+),
+dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
+nrow = 3, ncol = 2
+)
+embedded_results_lr <- data.frame(embedded_results_lr)
+kable(embedded_results_lr)
+```
+
+From the trace plots we notice the chain is mixing quickly, signalling a good exploratory behavior. The histograms of each coordinate of the samples show RWMH is sampling sensibly.
+
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8}
 samplesdf <- data.frame(samples) %>% mutate(iterations = row_number())
 trace1 <- ggplot(data = samplesdf, aes(x = iterations, y = X1)) + geom_line()
 trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
-
-Plotting the histograms of the samples for each coordinate of the parameter vector shows that RWMH is indeed sampling correctly.
-
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
   geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
 hist2 <- ggplot(data = samplesdf, aes(x = X2, stat(density))) +
-  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
 hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
-  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
 The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.align="center", fig.height=3, fig.width=6}
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
 # Calculate slope and intercept for those samples. Then calculate x2 from x1
@@ -737,16 +783,8 @@ ggplot() +
   coord_cartesian(xlim = c(-550, -300), ylim = c(-550, -300)) +
   geom_line(data = dfsample_lines, aes(x = x1, y = value, group = key), alpha = 0.1, color = "grey50") +
   geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
-  labs(color = "Class", title = "Sample Decision Boundaries") +
+  labs(color = "Class") +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
-```
-
-Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
-
-```{r embedded accuracy logistic regression}
-Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
-lr_embedded_preds <- round(1.0 / (1.0 + exp(-Xtest_embedded %*% start)))
-calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
 \newpage
