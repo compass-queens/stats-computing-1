@@ -528,6 +528,32 @@ $$
 \vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
 $$
 
+### Gradient Ascent (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
+$$
+
+### Newton's Method (MLE, No Regularization)
+The iterations are as follows, where for stability one can add a learning rate $\alpha$, which is in practice often set to $\alpha=0.1$.
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k +  \alpha(X^\top D X)^{-1} X^\top(\vy - \sigma(X\vbeta_k))
+$$
+In practice we would solve the corresponding system for $\vect{d}$
+$$
+(X^\top D X)\vect{d}_k = \alpha X^\top(\vy - \sigma(X\vbeta_k))
+$$
+and then perform the update
+$$
+\vbeta_{k+1}\leftarrow \vbeta_k + \vect{d}_k
+$$
+
+### Newton's Method (MAP, Ridge Regularization)
+The update takes the form
+$$
+\vbeta_{k+1} \leftarrow \vbeta_k + \alpha \left[\sigma^2_{\vbeta} X^\top D X + I\right]^{-1}\left(\sigma^2_{\vbeta} X^\top (\vy - \sigma(X\vbeta_k)) - \vbeta_k\right)
+$$
+
 ### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
