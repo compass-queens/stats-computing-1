@@ -607,7 +607,9 @@ results <- data.frame(results_matrix)
 results
 ```
 
-### Random-Walk Metropolis-Hastings
+### Random-Walk Metropolis-Hastings Implementation
+Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
+
 ```{r}
 rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
     # Set current z to the initial point and calculate its log target to save computations
