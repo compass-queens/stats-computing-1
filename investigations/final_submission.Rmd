@@ -555,7 +555,7 @@ $$
 $$
 
 ## Implementation
-### Maximum-A-Posteriori with BFGS, Newton's Method and Gradient Ascent
+### Maximum a Posteriori
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest  <- as.matrix(cbind(1, test_data))
@@ -573,7 +573,7 @@ yhat_map_ga <- predict(lr_map_ga, Xtest)
 acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
-### Maximum Likelihood Estimation with BFGS, Newton's Method and Gradient Ascent
+### Maximum Likelihood Estimation
 
 ```{r}
 # MLE, BFGS
@@ -590,7 +590,7 @@ yhat_mle_ga <- predict(lr_mle_ga, Xtest)
 acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
 
-### Combine results in a single matrix
+### Comparing Cost Functions and Optimization Methods
 
 ```{r}
 # put everything together into a nice table
