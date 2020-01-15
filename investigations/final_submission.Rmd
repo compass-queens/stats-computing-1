@@ -1,7 +1,6 @@
 ---
 title: "SC1_Proj"
 author: "Alessio"
-date: "13 January 2020"
 output: pdf_document
 urlcolor: blue
 header-includes:
@@ -48,16 +47,17 @@ theme_set(theme_minimal())
 # Introduction
 One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
 
-The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation.
-
-The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
 
 
 # Exploratory analysis
-
+We begin by exploring the data to gain some understanding of the features and their relationships to inform further work. We do the majority of the data manipulation and analysis within this report using the tidyverse library. We begin by loading the data as a tibble:
 
 ```{r}
 data <- read_csv("../data/data.csv")
+```
+
+```{r, echo=FALSE}
 colnames(data)[3:32] <- c(
   "radius_m", "texture_m", "perim_m", "area_m", "smooth_m", "compact_m",
   "concav_m", "concav_pt_m", "symmetry_m", "frac_dim_m", "radius_se",
@@ -68,44 +68,54 @@ colnames(data)[3:32] <- c(
 )
 ```
 
-Check for missing values in every column.
+After renaming some variables to some more manageable variables we next have to ensure the hygiene of our data. Through manual inspection it is clear that our data is already in the tidy data format so all that remains is to see if any corrupted data is present:
+
 ```{r}
 colSums(is.na(data))
 ```
 
+From this we can see that the feature parsed as `X33` is not present for any observation and therefore can be removed without any difficulties using `dplyr`
+
+```{r}
+data %<>%
+  dplyr::select(-c(X33))
+```
+
+In order to make the data easier to work with we also need to set the response, the diagnosis of the patient, to be a factor.
 ```{r}
 data %<>% mutate_at(vars(diagnosis), factor)
 ```
 
+The next step before analysing the data is to produce a test/train split in order to evaluate how well our models and methods will generalise which we can do again using `dplyr`. We choose an 80/20 train/test split.
+
 ```{r}
 train <- data %>% sample_frac(0.8)
 test <- anti_join(data, train, by = "id")
+```
 
-# need ids for later
+We also remove the labels and store them elsewhere so that we have the raw data input to analyse.
+
+```{r}
 id_train <- train$id
 id_test <- test$id
-```
 
-```{r}
 data %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 train %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 test %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 ```
 
-```{r}
-sum(is.na(data))
-```
 
-```{r}
+```{r, echo=FALSE}
 training_data <- train[2:dim(train)[2]]
 training_classes <- train[1]
 test_data <- test[2:dim(test)[2]]
 test_classes <- test[1]
 ```
 
+Before continuing with our analysis we need to make sure that the train/test split is representative of the entire data. Below is a plot of the class distribution in the training set on the left and the test set on the right. As can be seen these are fairly even and therefore this split is suitable for analysis.
 ```{r echo=FALSE}
 g1 <- ggplot(training_classes, aes(x = diagnosis, fill = diagnosis)) +
   geom_bar(aes(y = (..count..) / sum(..count..))) +
@@ -128,6 +138,8 @@ g2 <- ggplot(test_classes, aes(x = diagnosis, fill = diagnosis)) +
 ggarrange(g1, g2)
 ```
 
+We now want to try and discover if our data has any exploitable structure that we can use for classification. We can examine the density plots of each feature for each class against each other to see if there are features which have substantially different plots.
+
 ```{r fig.height=40, fig.width=30, echo=FALSE}
 train %>%
   group_by(diagnosis) %>%
@@ -143,7 +155,11 @@ train %>%
   )
 ```
 
+From these plots above we can see that many of the features are, from visual, inspection, approximately normal. Whilst this is not conclusive as per a test however this may justify some techniques for classification which rely on normality of the features (as in the choice of naive bayes below).
 
+Many of the features display little difference in densities between classes however several of the features display noticeable difference which is promising for modelling.
+
+The final plot we want to do is to check the pairwise correlations betwee all pairs of features. 
 ```{r echo=FALSE}
 corr <- training_data[, -1] %>%
   cor() %>%
@@ -152,6 +168,7 @@ corr <- training_data[, -1] %>%
 corrplot(corr, method = "circle", order = "hclust", tl.col = "black")
 ```
 
+This plot shows that a large number of our features are highly correlated which gives us some indication that we can perhaps predict some features from others and reduce the dimension of the data we are working with. Now that we have established that there appears to be some structure within our data and that there appears to be more important variables we can move on with an attempt to reduce the dimensionality of our data.
 \newpage
 # Dimensionality Reduction and Feature Selection
 
