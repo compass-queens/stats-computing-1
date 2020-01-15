@@ -3,6 +3,7 @@ title: "SC1_Proj"
 author: "Alessio"
 date: "13 January 2020"
 output: pdf_document
+urlcolor: blue
 header-includes:
 - \usepackage{amsmath}
 - \usepackage{bm}
@@ -214,23 +215,7 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 add list of methods+measure 
 
 ## SVM
-To solve the problem of finding a SVM like classifier for non-separable data we must permit a certain number of points to violate the boundaries set however this number and the amount they violate the constraints by must be as small as possible. To formulate this we introduce a variable $\epsilon_{i}$ for each data point into the objective functions and the constraints leading to the optimisation problem:
-
-$$
-\underset{w, \epsilon_{i}}{\text{min}} \, \frac{1}{2} w^{T}w + C\sum\limits_{i=0}^{n}\epsilon_{i}
-$$
-$$
-\text{such that } w \cdot x_{i} + b + \epsilon_{i}> 1 \text{ if } y_{i} =1
-$$
-$$
-\text{and } w \cdot x_{i} + b + \epsilon_{i}< -1 \text{ if } y_{i} =-1
-$$
-
-Note that we have swapped the sign of the $b$ term in the equation for the hyperplane because I implemented it this way before realising they were different and am lazy.
-
-As the above problem is convex (as it is quadratic) and Slater's condition holds then strong duality holds and we can take the Lagrangian of the optimisation problem and consider the result of the KKT conditions. By doing so we can reformulate the optimisation problem as the dual problem:
-
-
+From the application of PCA to the dataset we can see that, after reducing to 2 dimensions, the data appears to be almost linearly separable. Given this, an appropriate method of classifying the data would be to apply a soft-margin SVM to the reduced dimension data. Soft-margin SVMs solve the problem of classifying non-separable data by permitting a certain number of points to be incorrectly classifed however the number and the amount they violate the constraints by must be as small as possible. After manipulating the reformulated optimisation problem we end up with the optimisation problem
 $$
 \underset{\lambda}{\text{min}} \, \frac{\overline{\lambda}X X^{T}\overline{\lambda^{T}}}{4}
 + \lambda^{T}\bm{1}
@@ -245,74 +230,29 @@ $$
 where
 $$
 X = \begin{pmatrix}
-x_{1} \\
+x_{1}^{T} \\
 \vdots \\
-x_{n}
+x_{n}^{T}
 \end{pmatrix} \text{ and } 
 \overline{\lambda} = [\lambda_{1} \cdot y_{i}, ... , \lambda_{n} \cdot y_{n}] \text{ and } \bm{1} = [1, ..., 1] \in \mathbb{R^{n}}
 $$
-As before we have to massage this optimisation problem into one that can be solved using `solve.QP`. In this formulation 
-
-$$
-d = \bm{1}
-$$
-and 
-$$
-D = 
-\begin{pmatrix}
-y_{1} & 0  & ... & 0 \\
-0 & y_{2} & ... & 0 \\
-\vdots & \vdots & \ddots  & \vdots \\
-0 & 0 & ... & y_{n} 
-\end{pmatrix} X X^{T}
-\begin{pmatrix}
-y_{1} & 0  & ... & 0 \\
-0 & y_{2} & ... & 0 \\
-\vdots & \vdots & \ddots  & \vdots \\
-0 & 0 & ... & y_{n} 
-\end{pmatrix}
-$$
-$A$ and $b_{0}$ require slightly more manipulation this time around with
-
-$$
-A = \begin{pmatrix}
-y_{1} & y_{2} & ... & y_{n} \\
-&&\hspace{-5mm}  I \\
-&&\hspace{-5mm}  -I
-\end{pmatrix}
-$$
-and
-$$
-b_{0} = \begin{pmatrix}
-0 \\
-\bm{0}\\
--\bm{C} 
-\end{pmatrix}
-$$
-where
-$$
-\bm{0} = [0, \, ... , \, 0]^{T} \in \mathbb{R}^{n}
-$$
-and
-$$
-\bm{C} = [C, \, ... \, , \, C]^{T} \in \mathbb{R}^{n}
-$$
-The code for this applied to the non-separable data can be found below.
-
+For some predefined $C$. This is a quadratic programming problem with linear constraints which can be solved using the R package `quadprog`with the function `solve.QP`. From its documentation, this function can solve (for $b$) problems in the form $\underset{b}{\text{min}}(-d^{T}b + \frac{1}{2} b^{T}Db)$ with the constraints that $A^{T} b \geq b_0$. By transforming the above problem into this format we can implement soft-margin SVM using the following code
 ```{r, eval=FALSE}
-C <- 1
+train_soft_svm <- function(X, y, C) {
+  
+  num_observation <- nrow(X)
+  dim_num <- ncol(X)
 
-X <- as.matrix(combined_class)[, 1:2]
-y <- as.matrix(combined_class)[, 3]
-Dmat2 <- diag(y) * X %*% t(X) %*% diag(y)
-diag(Dmat2) <- diag(Dmat2) + 1e-11
-dv2 <- rep(1, 30)
-
-A2 <- rbind(y, diag(30))
-A2 <- rbind(A2, -1 * diag(30))
-
-bv2 <- c(c(0), rep(0, 30), rep(-C, 30))
-model <- solve.QP(Dmat2, dv2, t(A2), bv2, meq = 1)
+  Dmat2 <- diag(y) * X %*% t(X) %*% diag(y)
+  diag(Dmat2) <- diag(Dmat2) + 1e-6
+  dv2 <- rep(1, num_observation)
+  
+  A2 <- rbind( y,diag(num_observation)) 
+  A2 <- rbind(A2, -1*diag(num_observation))
+  
+  bv2 <- c(c(0), rep(0, num_observation), rep(-C, num_observation) )
+  model <- solve.QP(Dmat2, dv2, t(A2), bv2, meq = 1) 
+}
 ```
 
 In order to recover $w$ and $b$ from $\lambda$ we use the relationship
@@ -323,8 +263,10 @@ and
 $$
 b = \text{mean}(\sum\limits_{i=0}^{k} y_{i} - w \cdot x_{i}) \, . \, \forall \, i . 0 < \lambda_{i} < C
 $$
+
 Which can be made as functions in R as so:
-```{r}
+
+```{r, eval=FALSE}
 calculate_b <- function(w, X, y, a, C) {
   ks <- sapply(a, function(x) {
     return(x > 0 && x < C)
@@ -344,8 +286,7 @@ recover_w <- function(a, y, X) {
 ```
 
 
-We can see the results of using the dual regression below
-
+From the parameters we can recover the equation of the line corresopnding the decision boundary which can later be used for plotting
 ```{r}
 soft_margin_svm_plotter <- function(w, b) {
   plotter <- function(x) {
@@ -355,18 +296,20 @@ soft_margin_svm_plotter <- function(w, b) {
 }
 ```
 
-```{r}
-factor_to_label <- function(x) {
-  if (as.character(x) == "M") {
+
+```{r, echo=FALSE}
+factor_to_label <- function(x)  {
+  if(as.character(x) == "M")  {
     return(1)
   }
   else {
+    
     return(-1)
   }
 }
 ```
 
-```{r}
+```{r, echo=FALSE}
 label_to_factor <- function(x) {
   if (x == 1) {
     return(as.factor("M"))
@@ -379,8 +322,9 @@ numeric_test_labels <- apply(test_classes, 1, factor_to_label)
 numeric_training_labels <- apply(training_classes, 1, factor_to_label)
 ```
 
+TODO: prediction function
 
-Use PCA then do SVM 
+We are now able to define a function which first embeds the vector in the reduced space and then predicts the class based upon the prediction function produced by the parameters found by the SVM. Below is code that will do the following based upon a package written for this assignment found [here](https://github.com/alessio-b-zak/sc1-svm-example-package)
 ```{r}
 model <- svm(
   X = pca_result$reduced_data,
@@ -398,18 +342,20 @@ pca_reduced_prediction_fn <- function(x) {
   reduced_prediction_fn(t(p))
 }
 ```
- 
+
 ```{r}
 pca_reduced_test_data <- t(apply(as.matrix(test_data), 1, function(x) x %*%
                                    pca_result$reduction_matrix))
 ```
  
-```{r}
-pred_svm <- apply(as.matrix(test_data), 1, pca_reduced_prediction_fn)
-accuracy_calc(numeric_test_labels, pred_svm)
+
+```{r, echo=FALSE}
+pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 ```
 
-```{r}
+When running the trained SVM prediction functio on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
+
+```{r, echo=FALSE}
 svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
 embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
                                 pca_result$reduction_matrix), test_classes)
