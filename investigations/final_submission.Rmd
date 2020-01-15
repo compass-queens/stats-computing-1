@@ -555,10 +555,14 @@ $$
 $$
 
 ## Implementation
-### Maximum a Posteriori
+First, we need to add a column of $1$s to the design matrix so that we can fit the bias coefficient.
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest  <- as.matrix(cbind(1, test_data))
+```
+
+### Maximum a Posteriori
+```{r}
 # MAP, BFGS
 lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost="MAP", method="BFGS")
 yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
