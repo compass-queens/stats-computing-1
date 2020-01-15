@@ -5,9 +5,9 @@ date: "13 January 2020"
 output: pdf_document
 urlcolor: blue
 header-includes:
-- \usepackage{algorithm2e}
 - \usepackage{amsmath}
 - \usepackage{bm}
+- \usepackage{algorithm2e}
 ---
 \newcommand{\vect}[1]{\boldsymbol{\mathbf{#1}}}
 \newcommand{\vbeta}{\vect{\beta}}
