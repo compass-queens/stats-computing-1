@@ -695,7 +695,7 @@ hist3 <- ggplot(data=samplesdf, aes(x=X3, stat(density))) +
 grid.arrange(hist1, hist2, hist3, ncol=1)
 ```
 
-Finally, we can plot the decision boundary found by BFGS together with the sampled lines. 
+The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
 
 ```{r}
 samples_to_select <- 200
@@ -717,6 +717,12 @@ ggplot() +
   geom_line(data=dfmap, aes(x=x1, y=y), color="black") +  # MAP line
   labs(color="Class", title="Sample Decision Boundaries") + 
   theme(plot.title=element_text(hjust=0.5, size=20))
+```
+
+Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
+```{r}
+lr_embedde_preds <- round(1.0 / (1.0 + exp(-cbind(1, as.matrix(embedded_test_data[, c(1, 2)])) %*% start)))
+calc_accuracy(test_classes, lr_embedde_preds)
 ```
 
 \newpage
