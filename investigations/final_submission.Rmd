@@ -13,9 +13,6 @@ header-includes:
 \newcommand{\vy}{\vect{y}}
 \newcommand{\vzero}{\vect{0}}
 \newcommand{\vSigma}{\vect{\Sigma}}
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,warning = FALSE,message = FALSE)
-```
 
 ```{r, include=FALSE}
 library(ggplot2)
@@ -30,12 +27,17 @@ library(devtools)
 library(ggpubr)
 library(reshape2)
 library(gridExtra)
+library(knitr)
 install_github("alessio-b-zak/sc1-svm-example-package")
 install_github("MauroCE/LogisticRegression")
 install_github("andreabecsek/NaiveBayes")
 library(alessiosvm)
 library(LogisticRegression)
 library(NaiveBayes)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 ```
 
 ```{r  echo=FALSE}
@@ -55,12 +57,14 @@ The aim of this report is to implement a number of classification algorithms, us
 
 ```{r}
 data <- read_csv("../data/data.csv")
-colnames(data)[3:32] <- c('radius_m','texture_m', 'perim_m','area_m','smooth_m','compact_m',
-                          'concav_m','concav_pt_m','symmetry_m','frac_dim_m','radius_se',
-                          'texture_se','perim_se','area_se','smooth_se','compact_se',
-                          'concav_se','concav_pt_se','symmetry_se','frac_dim_se','radius_w',
-                          'texture_w','perim_w','area_w','smooth_w','compact_w','concav_w',
-                          'concav_pt_w','symmetry_w','frac_dim_w')
+colnames(data)[3:32] <- c(
+  "radius_m", "texture_m", "perim_m", "area_m", "smooth_m", "compact_m",
+  "concav_m", "concav_pt_m", "symmetry_m", "frac_dim_m", "radius_se",
+  "texture_se", "perim_se", "area_se", "smooth_se", "compact_se",
+  "concav_se", "concav_pt_se", "symmetry_se", "frac_dim_se", "radius_w",
+  "texture_w", "perim_w", "area_w", "smooth_w", "compact_w", "concav_w",
+  "concav_pt_w", "symmetry_w", "frac_dim_w"
+)
 ```
 
 Check for missing values in every column.
@@ -74,7 +78,7 @@ data %<>% mutate_at(vars(diagnosis), factor)
 
 ```{r}
 train <- data %>% sample_frac(0.8)
-test <- anti_join(data,train, by='id')
+test <- anti_join(data, train, by = "id")
 
 # need ids for later
 id_train <- train$id
@@ -82,11 +86,11 @@ id_test <- test$id
 ```
 
 ```{r}
-data %<>%  
+data %<>%
   dplyr::select(-c(id, X33))
-train %<>%  
+train %<>%
   dplyr::select(-c(id, X33))
-test %<>%  
+test %<>%
   dplyr::select(-c(id, X33))
 ```
 
@@ -95,49 +99,56 @@ sum(is.na(data))
 ```
 
 ```{r}
-training_data <- train[2:dim(train)[2]] 
-training_classes <- train[1] 
-test_data <- test[2:dim(test)[2]] 
-test_classes <- test[1] 
+training_data <- train[2:dim(train)[2]]
+training_classes <- train[1]
+test_data <- test[2:dim(test)[2]]
+test_classes <- test[1]
+```
+
+```{r echo=FALSE}
+g1 <- ggplot(training_classes, aes(x = diagnosis, fill = diagnosis)) +
+  geom_bar(aes(y = (..count..) / sum(..count..))) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none"
+  )
+
+
+g2 <- ggplot(test_classes, aes(x = diagnosis, fill = diagnosis)) +
+  geom_bar(aes(y = (..count..) / sum(..count..))) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "none"
+  )
+ggarrange(g1, g2)
 ```
 
 ```{r fig.height=40, fig.width=30, echo=FALSE}
-train %>% 
-  group_by(diagnosis) %>% 
-  gather(key="var",value="value",-diagnosis) %>% 
-  ggplot(aes(x=value))+
-  facet_wrap(~var,scales='free',nrow=6)+
-  geom_density(aes(fill=diagnosis),alpha=0.4)+
-  theme_minimal()+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        legend.position="bottom")
+train %>%
+  group_by(diagnosis) %>%
+  gather(key = "var", value = "value", -diagnosis) %>%
+  ggplot(aes(x = value)) +
+  facet_wrap(~var, scales = "free", nrow = 6) +
+  geom_density(aes(fill = diagnosis), alpha = 0.4) +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = "bottom"
+  )
 ```
 
-```{r echo=FALSE}
-g1<-ggplot(training_classes,aes(x=diagnosis,fill=diagnosis))+
-  geom_bar(aes(y=(..count..)/sum(..count..)))+
-  theme_minimal()+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        legend.position='none')
-  
-
-g2<-ggplot(test_classes,aes(x=diagnosis,fill=diagnosis))+
-  geom_bar(aes(y=(..count..)/sum(..count..)))+
-  theme_minimal()+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        legend.position='none')
-ggarrange(g1,g2)
-```
 
 ```{r echo=FALSE}
-corr <- training_data[,-1] %>% 
-          cor() %>% 
-           round(1)
+corr <- training_data[, -1] %>%
+  cor() %>%
+  round(1)
 
-corrplot(corr, method='circle',order='hclust',tl.col = "black")
+corrplot(corr, method = "circle", order = "hclust", tl.col = "black")
 ```
 
 \newpage
@@ -147,11 +158,15 @@ corrplot(corr, method='circle',order='hclust',tl.col = "black")
 
 Code
 ```{r}
-normalise_z <-  function(X){
+normalise_z <- function(X) {
   mean_cols <- colMeans(X)
   sd_cols <- apply(X, 2, sd)
-  mean_normalised_X <- t(apply(X, 1, function(x){x - mean_cols}))
-  normalised_X <- t(apply(mean_normalised_X, 1, function(x){x / sd_cols}))
+  mean_normalised_X <- t(apply(X, 1, function(x) {
+    x - mean_cols
+  }))
+  normalised_X <- t(apply(mean_normalised_X, 1, function(x) {
+    x / sd_cols
+  }))
   return(normalised_X)
 }
 
@@ -161,10 +176,10 @@ pca <- function(X, number_components_keep) {
 
   corr_mat <- t(normalised_X) %*% normalised_X
 
-  eigenvectors <- eigen(corr_mat, symmetric=TRUE)$vectors
+  eigenvectors <- eigen(corr_mat, symmetric = TRUE)$vectors
 
-  reduced_data <-  X %*% eigenvectors[,1:number_components_keep]
-  relevant_eigs <-  eigenvectors[,1:number_components_keep]
+  reduced_data <- X %*% eigenvectors[, 1:number_components_keep]
+  relevant_eigs <- eigenvectors[, 1:number_components_keep]
   returnds <- list(reduced_data, relevant_eigs)
   names(returnds) <- c("reduced_data", "reduction_matrix")
   return(returnds)
@@ -176,7 +191,8 @@ Apply to dataset
 pca_result <- pca(as.matrix(training_data), 2)
 pca_reduced_training_data <- data.frame(cbind(pca_result$reduced_data, training_classes))
 
-ggplot(data=pca_reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis))
+ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
+      geom_point(aes(colour = diagnosis))
 ```
   
 <!-- # tSNE  -->
@@ -286,16 +302,16 @@ The code for this applied to the non-separable data can be found below.
 ```{r, eval=FALSE}
 C <- 1
 
-X <- as.matrix(combined_class)[,1:2]
-y <- as.matrix(combined_class)[,3]
+X <- as.matrix(combined_class)[, 1:2]
+y <- as.matrix(combined_class)[, 3]
 Dmat2 <- diag(y) * X %*% t(X) %*% diag(y)
 diag(Dmat2) <- diag(Dmat2) + 1e-11
 dv2 <- rep(1, 30)
 
-A2 <- rbind( y,diag(30)) 
-A2 <- rbind(A2, -1*diag(30))
+A2 <- rbind(y, diag(30))
+A2 <- rbind(A2, -1 * diag(30))
 
-bv2 <- c(c(0), rep(0, 30), rep(-C, 30) )
+bv2 <- c(c(0), rep(0, 30), rep(-C, 30))
 model <- solve.QP(Dmat2, dv2, t(A2), bv2, meq = 1)
 ```
 
@@ -310,17 +326,19 @@ $$
 Which can be made as functions in R as so:
 ```{r}
 calculate_b <- function(w, X, y, a, C) {
-  ks <- sapply(a, function(x){return(x > 0 && x < C)})
+  ks <- sapply(a, function(x) {
+    return(x > 0 && x < C)
+  })
   indices <- which(ks)
   sum_bs <- 0
-  for(i in indices) {
-    sum_bs <- sum_bs + (y[i] - w %*% X[i,]) 
+  for (i in indices) {
+    sum_bs <- sum_bs + (y[i] - w %*% X[i, ])
   }
   return(sum_bs / length(indices))
 }
 
 
-recover_w <- function(a, y, X){
+recover_w <- function(a, y, X) {
   colSums(diag(a) %*% diag(y) %*% X)
 }
 ```
@@ -331,15 +349,15 @@ We can see the results of using the dual regression below
 ```{r}
 soft_margin_svm_plotter <- function(w, b) {
   plotter <- function(x) {
-    return(1/w[2]   * -(b + (w[1]*as.numeric(x))))
+    return(1 / w[2] * -(b + (w[1] * as.numeric(x))))
   }
   return(plotter)
 }
 ```
 
 ```{r}
-factor_to_label <- function(x)  {
-  if(as.character(x) == "M")  {
+factor_to_label <- function(x) {
+  if (as.character(x) == "M") {
     return(1)
   }
   else {
@@ -350,10 +368,10 @@ factor_to_label <- function(x)  {
 
 ```{r}
 label_to_factor <- function(x) {
-  if(x == 1) {
+  if (x == 1) {
     return(as.factor("M"))
   }
-  else{
+  else {
     return(as.factor("B"))
   }
 }
@@ -364,11 +382,13 @@ numeric_training_labels <- apply(training_classes, 1, factor_to_label)
 
 Use PCA then do SVM 
 ```{r}
-model <- svm(X=pca_result$reduced_data, 
-             classes=numeric_training_labels, 
-             C=100000, margin_type='soft', 
-             kernel_function = linear_kernel, 
-             feature_map = linear_basis_function)
+model <- svm(
+  X = pca_result$reduced_data,
+  classes = numeric_training_labels,
+  C = 100000, margin_type = "soft",
+  kernel_function = linear_kernel,
+  feature_map = linear_basis_function
+)
 
 
 reduced_prediction_fn <- model$prediction_function
@@ -380,21 +400,23 @@ pca_reduced_prediction_fn <- function(x) {
 ```
  
 ```{r}
-pca_reduced_test_data <- t(apply(as.matrix(test_data),1, function(x) x %*% pca_result$reduction_matrix))
+pca_reduced_test_data <- t(apply(as.matrix(test_data), 1, function(x) x %*%
+                                   pca_result$reduction_matrix))
 ```
  
 ```{r}
-pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
+pred_svm <- apply(as.matrix(test_data), 1, pca_reduced_prediction_fn)
 accuracy_calc(numeric_test_labels, pred_svm)
 ```
 
 ```{r}
 svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
-embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*% pca_result$reduction_matrix), test_classes)
+embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
+                                pca_result$reduction_matrix), test_classes)
 
-ggplot(embedded_test_data, aes(x=as.numeric(X1), y=as.numeric(X2))) + 
-  geom_point(aes(colour=diagnosis)) + 
-  stat_function(fun=svm_plotter)
+ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
+  geom_point(aes(colour = diagnosis)) +
+  stat_function(fun = svm_plotter)
 ```
 
 \newpage
@@ -464,8 +486,8 @@ for (obs in 1:n) {
       sd <- summaries[class, feat, 2]
       cond <- dnorm(x_new[obs, feat], mu, sd, log = TRUE)
       class_prob <- class_prob + cond
-      }
-     probs[obs, class] <- class_prob
+    }
+    probs[obs, class] <- class_prob
   }
 }
 
@@ -475,36 +497,36 @@ pred <- apply(probs, 1, which.max)
 ## Fit model to dataset
 
 ```{r}
-levels(training_classes$diagnosis) <- c(0,1)
+levels(training_classes$diagnosis) <- c(0, 1)
 training_classes %<>% as.matrix
-mode(training_classes) <- 'numeric'
+mode(training_classes) <- "numeric"
 
-levels(test_classes$diagnosis) <-c(0,1)
+levels(test_classes$diagnosis) <- c(0, 1)
 test_classes %<>% as.matrix
-mode(test_classes) <- 'numeric'
+mode(test_classes) <- "numeric"
 ```
 
 Fit the Naive Bayes model to the data, calculate predictions and check the accuracy using.
 ```{r}
-model_naive <- naive_bayes(training_data,training_classes)
+model_naive <- naive_bayes(training_data, training_classes)
 
-pred_naive <- predict(model_naive,as.matrix(test_data))
+pred_naive <- predict(model_naive, as.matrix(test_data))
 
 # confusion_plot(test_classes,pred_naive)
 
 calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
 
-acc_naive <- calc_accuracy(test_classes,pred_naive)
+acc_naive <- calc_accuracy(test_classes, pred_naive)
 acc_naive
 ```
 
 Fit the model to the PCA-reduced dataset.
 ```{r}
-model_naive_pca <- naive_bayes(pca_result$reduced_data,training_classes)
+model_naive_pca <- naive_bayes(pca_result$reduced_data, training_classes)
 
-pred_naive_pca <- predict(model_naive_pca,pca_reduced_test_data)
+pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 
-acc_naive_pca <- calc_accuracy(test_classes,pred_naive_pca)
+acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
 acc_naive
 ```
 
@@ -567,22 +589,25 @@ $$
 First, we need to add a column of $1$s to the design matrix so that we can fit the bias coefficient.
 ```{r}
 Xtrain <- as.matrix(cbind(1, training_data))
-Xtest  <- as.matrix(cbind(1, test_data))
+Xtest <- as.matrix(cbind(1, test_data))
 ```
 
 ### Maximum a Posteriori
 We implement BFGS, Newton's Method and Gradient Ascent.
 ```{r}
 # MAP, BFGS
-lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost="MAP", method="BFGS")
+lr_map_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                                   method = "BFGS")
 yhat_map_bfgs <- predict(lr_map_bfgs, Xtest)
 acc_map_bfgs <- calc_accuracy(test_classes, yhat_map_bfgs)
 # MAP, NEWTON
-lr_map_nm <- logistic_regression(Xtrain, training_classes, cost="MAP", method="NEWTON", niter=250)
+lr_map_nm <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                                 method = "NEWTON", niter = 250)
 yhat_map_nm <- predict(lr_map_nm, Xtest)
 acc_map_nm <- calc_accuracy(test_classes, yhat_map_nm)
 # MAP, GRADIENT ASCENT
-lr_map_ga <- logistic_regression(Xtrain, training_classes, cost="MAP", method="GA", niter=1000)
+lr_map_ga <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
+                                 method = "GA", niter = 1000)
 yhat_map_ga <- predict(lr_map_ga, Xtest)
 acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
@@ -591,15 +616,18 @@ acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 Similarly, we also implement the same algorithms for Maximum Likelihood Estimation.
 ```{r}
 # MLE, BFGS
-lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost="MLE", method="BFGS")
+lr_mle_bfgs <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                                   method = "BFGS")
 yhat_mle_bfgs <- predict(lr_mle_bfgs, Xtest)
 acc_mle_bfgs <- calc_accuracy(test_classes, yhat_mle_bfgs)
 # MLE, NEWTON
-lr_mle_nm <- logistic_regression(Xtrain, training_classes, cost="MLE", method="NEWTON", niter=250)
+lr_mle_nm <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                                 method = "NEWTON", niter = 250)
 yhat_mle_nm <- predict(lr_mle_nm, Xtest)
 acc_mle_nm <- calc_accuracy(test_classes, yhat_mle_nm)
 # MLE, GRADIENT ASCENT
-lr_mle_ga <- logistic_regression(Xtrain, training_classes, cost="MLE", method="GA", niter=1000)
+lr_mle_ga <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
+                                 method = "GA", niter = 1000)
 yhat_mle_ga <- predict(lr_mle_ga, Xtest)
 acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
@@ -608,10 +636,13 @@ acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
 ```{r}
 # put everything together into a nice table
-results_matrix <- matrix(c(acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
-                           acc_map_bfgs, acc_map_nm, acc_map_ga), 
-                         dimnames=list(c("BFGS", "NM", "GA"), c("MLE", "MAP")), 
-                         nrow=3, ncol=2)
+results_matrix <- matrix(c(
+  acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
+  acc_map_bfgs, acc_map_nm, acc_map_ga
+),
+dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
+nrow = 3, ncol = 2
+)
 results <- data.frame(results_matrix)
 results
 ```
@@ -620,37 +651,37 @@ results
 Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
 
 ```{r}
-rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin){
-    # Set current z to the initial point and calculate its log target to save computations
-    z  <- start    # It's a column vector
-    pz <- logtarget(start)
-    # create vector deciding iterations where we record the samples
-    store <- seq(from=(1+burnin), to=niter, by=thinning)
-    #n_samples <- (niter - burnin) %/% thinning
-    # Generate matrix containing the samples. Initialize first sample with the starting value
-    samples <- matrix(0, nrow=length(store), ncol=nrow(start))
-    samples[1, ] <- start
-    # Generate uniform random numbers in advance, to save computation. Take logarithm?
-    log_u <- log(runif(niter))
-    # Proposal is a multivariate standard normal distribution. Generate samples and
-    # later on use linearity property of Gaussian distribution
-    vcov <- diag(nrow(start)) %*% vcov
-    normal_shift <- mvrnorm(n=niter, mu=c(0,0,0), Sigma=vcov)
-    for (i in 2:niter){
-        # Sample a candidate
-        candidate <- z + normal_shift[i, ]
-        # calculate log target of candidate and store it in case it gets accepted
-        p_candidate <- logtarget(candidate)
-        # use decision rule explained in blog posts
-        if (log_u[i] <= p_candidate - pz){
-            # Accept!
-            z  <- candidate
-            pz <- p_candidate
-        }
-        # Finally add the sample to our matrix of samples
-        if (i %in% store) samples[which(store==i), ] <- z
+rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burnin) {
+  # Set current z to the initial point and calculate its log target to save computations
+  z <- start # It's a column vector
+  pz <- logtarget(start)
+  # create vector deciding iterations where we record the samples
+  store <- seq(from = (1 + burnin), to = niter, by = thinning)
+  # n_samples <- (niter - burnin) %/% thinning
+  # Generate matrix containing the samples. Initialize first sample with the starting value
+  samples <- matrix(0, nrow = length(store), ncol = nrow(start))
+  samples[1, ] <- start
+  # Generate uniform random numbers in advance, to save computation. Take logarithm?
+  log_u <- log(runif(niter))
+  # Proposal is a multivariate standard normal distribution. Generate samples and
+  # later on use linearity property of Gaussian distribution
+  vcov <- diag(nrow(start)) %*% vcov
+  normal_shift <- mvrnorm(n = niter, mu = c(0, 0, 0), Sigma = vcov)
+  for (i in 2:niter) {
+    # Sample a candidate
+    candidate <- z + normal_shift[i, ]
+    # calculate log target of candidate and store it in case it gets accepted
+    p_candidate <- logtarget(candidate)
+    # use decision rule explained in blog posts
+    if (log_u[i] <= p_candidate - pz) {
+      # Accept!
+      z <- candidate
+      pz <- p_candidate
     }
-    return(samples)
+    # Finally add the sample to our matrix of samples
+    if (i %in% store) samples[which(store == i), ] <- z
+  }
+  return(samples)
 }
 ```
 
@@ -663,45 +694,48 @@ We run logistic regression using the BFGS optimization method on MAP. Since we n
 
 ```{r}
 # up to normalizing constant
-log_posterior_unnormalized <- function(beta){
-    log_prior      <- -0.5*sum(beta^2)
-    log_likelihood <- -sum(log(1 + exp((1 - 2*training_classes) * (Xrwmh %*% beta))))
-    return(log_prior + log_likelihood)
+log_posterior_unnormalized <- function(beta) {
+  log_prior <- -0.5 * sum(beta^2)
+  log_likelihood <- -sum(log(1 + exp((1 - 2 * training_classes) * (Xrwmh %*% beta))))
+  return(log_prior + log_likelihood)
 }
 # To start the algorithm more efficiently, start from MAP estimate
-optim_results <- optim(c(0,0,0), function(x) - log_posterior_unnormalized(x), method="BFGS", hessian=TRUE)
+optim_results <- optim(c(0, 0, 0), function(x) -log_posterior_unnormalized(x),
+                       method = "BFGS", hessian = TRUE)
 start <- matrix(optim_results$par)
 # Use inverse of approximate hessian matrix as vcov of normal proposal
-vcov  <- solve(optim_results$hessian)
+vcov <- solve(optim_results$hessian)
 ```
 
 We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
 
 ```{r}
-samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
-                                 vcov, thinning=1, burnin=0)
+samples <- rwmh_multivariate_log(start,
+  niter = 50000, log_posterior_unnormalized,
+  vcov, thinning = 1, burnin = 0
+)
 ```
 
 We can look at the trace plots and notice how the chain is mixing quickly, signalling a good exploratory behavior.
 
 ```{r, echo=FALSE}
-samplesdf <- data.frame(samples) %>% mutate(iterations=row_number())
-trace1 <- ggplot(data=samplesdf, aes(x=iterations, y=X1)) + geom_line()
-trace2 <- ggplot(data=samplesdf, aes(x=iterations, y=X2)) + geom_line()
-trace3 <- ggplot(data=samplesdf, aes(x=iterations, y=X3)) + geom_line()
-grid.arrange(trace1, trace2, trace3, ncol=1)
+samplesdf <- data.frame(samples) %>% mutate(iterations = row_number())
+trace1 <- ggplot(data = samplesdf, aes(x = iterations, y = X1)) + geom_line()
+trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
+trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
+grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
 
 Plotting the histograms of the samples for each coordinate of the parameter vector shows that RWMH is indeed sampling correctly.
 
 ```{r, echo=FALSE}
-hist1 <- ggplot(data=samplesdf, aes(x=X1, stat(density))) + 
-  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
-hist2 <- ggplot(data=samplesdf, aes(x=X2, stat(density))) + 
-  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
-hist3 <- ggplot(data=samplesdf, aes(x=X3, stat(density))) + 
-  geom_histogram(binwidth=0.05, alpha=0.5, fill="turquoise1", color="turquoise4")
-grid.arrange(hist1, hist2, hist3, ncol=1)
+hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
+  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+hist2 <- ggplot(data = samplesdf, aes(x = X2, stat(density))) +
+  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
+  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
 The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
@@ -710,27 +744,28 @@ The next thing to do is to plot the decision boundary found by BFGS together wit
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
 # Calculate slope and intercept for those samples. Then calculate x2 from x1
-linecoefs <- cbind(-samples_subset[, 2]/samples_subset[, 3], - samples_subset[, 1] / samples_subset[, 3])
-x2_vals <- apply(linecoefs, 1, function(row) Xrwmh[, 2]*row[1] + row[2])
-# Store x2 values together with x1 values from X. Then melt to plot all lines 
-dfsample_lines <- data.frame(x1=Xrwmh[, 2], x2_vals) %>% 
+linecoefs <- cbind(-samples_subset[, 2] / samples_subset[, 3], -samples_subset[, 1] / samples_subset[, 3])
+x2_vals <- apply(linecoefs, 1, function(row) Xrwmh[, 2] * row[1] + row[2])
+# Store x2 values together with x1 values from X. Then melt to plot all lines
+dfsample_lines <- data.frame(x1 = Xrwmh[, 2], x2_vals) %>%
   gather("key", "value", -x1)
-# replace diagnosis 
-data_plot <- pca_reduced_training_data %>% mutate(training_classes=training_classes)
+# replace diagnosis
+data_plot <- pca_reduced_training_data %>% mutate(training_classes = training_classes)
 # Create dataframe containing values for the MAP line
-dfmap <- data.frame(x1=Xrwmh[, 2], y=(-start[2, ]/start[3, ])*Xrwmh[, 2] + (-start[1, ]/start[3, ]))
+dfmap <- data.frame(x1 = Xrwmh[, 2], y = (-start[2, ] / start[3, ]) * Xrwmh[, 2] + (-start[1, ] / start[3, ]))
 ggplot() +
-  geom_point(data=data_plot, aes(x=X1, y=X2, color=as.factor(training_classes))) +    # Dataset scatter plot
-  coord_cartesian(xlim=c(-550, -300), ylim=c(-550, -300)) + 
-  geom_line(data=dfsample_lines, aes(x=x1, y=value, group=key), alpha=0.1, color="grey50") +                     
-  geom_line(data=dfmap, aes(x=x1, y=y), color="black") +  # MAP line
-  labs(color="Class", title="Sample Decision Boundaries") + 
-  theme(plot.title=element_text(hjust=0.5, size=20))
+  geom_point(data = data_plot, aes(x = X1, y = X2, color = as.factor(training_classes))) + # Dataset scatter plot
+  coord_cartesian(xlim = c(-550, -300), ylim = c(-550, -300)) +
+  geom_line(data = dfsample_lines, aes(x = x1, y = value, group = key), alpha = 0.1, color = "grey50") +
+  geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
+  labs(color = "Class", title = "Sample Decision Boundaries") +
+  theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
 
 Finally, we can look at the performance of logistic regression on this reduced dataset. As a decision rule we just use a threshold.
 ```{r}
-lr_embedded_preds <- round(1.0 / (1.0 + exp(-cbind(1, as.matrix(embedded_test_data[, c(1, 2)])) %*% start)))
+lr_embedded_preds <- round(1 / (1 + exp(-cbind(1,as.matrix(embedded_test_data[, c(1, 2)]))
+%*% start)))
 calc_accuracy(test_classes, lr_embedded_preds)
 ```
 
@@ -740,36 +775,38 @@ calc_accuracy(test_classes, lr_embedded_preds)
 Merge all predictions
 ```{r}
 id <- seq(length(id_test))
-all_pred <- cbind(id,numeric_test_labels,pred_naive,pred_svm)
-colnames(all_pred) <- c('id','actual','naive','svm')
-all_pred[all_pred==-1] <-0
+all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_svm)
+colnames(all_pred) <- c("id", "actual", "naive", "svm")
+all_pred[all_pred == -1] <- 0
 all_pred %<>% as.data.frame()
 ```
 
 ```{r}
-confusion_plot <- function(actual,predicted){
-  confusion_matrix <- as.data.frame(table(actual,predicted))
-  g <-ggplot(confusion_matrix,aes(x=actual,y=predicted))+
-    geom_tile(aes(fill=Freq))+
-    geom_text(aes(label=sprintf("%1.0f", Freq)),color="white",fontface="bold")+
-   labs(x="Actual class",y="Predicted class")+
+confusion_plot <- function(actual, predicted) {
+  confusion_matrix <- as.data.frame(table(actual, predicted))
+  g <- ggplot(confusion_matrix, aes(x = actual, y = predicted)) +
+    geom_tile(aes(fill = Freq)) +
+    geom_text(aes(label = sprintf("%1.0f", Freq)), color = "white", fontface = "bold") +
+    labs(x = "Actual class", y = "Predicted class") +
     theme_minimal()
   return(g)
 }
 ```
 
 ```{r}
-errors <- all_pred %>% 
-  mutate(naive=naive==actual,
-         svm=svm==actual,
-         logistic=yhat_map_bfgs==actual) %>% 
-  dplyr::select(-'actual') %>% 
-  melt(id='id')
+errors <- all_pred %>%
+  mutate(
+    naive = naive == actual,
+    svm = svm == actual,
+    logistic = yhat_map_bfgs == actual
+  ) %>%
+  dplyr::select(-"actual") %>%
+  melt(id = "id")
 ```
 
 Visualize which are the observations that the models missclassify.
 ```{r}
-ggplot(errors,aes(x=id,y=variable,fill=value))+
-  geom_raster()+
+ggplot(errors, aes(x = id, y = variable, fill = value)) +
+  geom_raster() +
   theme_minimal()
 ```
