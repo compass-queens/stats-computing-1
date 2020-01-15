@@ -607,7 +607,7 @@ results <- data.frame(results_matrix)
 results
 ```
 
-### Random-Walk Metropolis-Hastings Implementation
+### Random-Walk Metropolis-Hastings Implementation on Reduced Data
 Next, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. To make it more efficient we can work with the log posterior and change the decision rule. In addition, we can pre-calculate all the normal and uniform samples and just access them later.
 
 ```{r}
@@ -645,20 +645,20 @@ rwmh_multivariate_log <- function(start, niter, logtarget, vcov, thinning, burni
 }
 ```
 
-### Log posterior using the 2 dimensional data
+Now we can add a column of $1$s to the reduced dataset created by PCA so that we can run Logistic Regression on the reduced data.
 ```{r}
-# add a column of 1 for bias
 Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
+```
+
+We run logistic regression using the BFGS optimization method on MAP. Since we need the Hessian matrix for sampling later on, we simply use the `optim` function on the unnormalized version of the posterior distribution for logistic regression.
+
+```{r}
 # up to normalizing constant
 log_posterior_unnormalized <- function(beta){
     log_prior      <- -0.5*sum(beta^2)
     log_likelihood <- -sum(log(1 + exp((1 - 2*training_classes) * (Xrwmh %*% beta))))
     return(log_prior + log_likelihood)
 }
-```
-
-### Start Optimization at the Mode
-```{r}
 # To start the algorithm more efficiently, start from MAP estimate
 optim_results <- optim(c(0,0,0), function(x) - log_posterior_unnormalized(x), method="BFGS", hessian=TRUE)
 start <- matrix(optim_results$par)
@@ -666,12 +666,10 @@ start <- matrix(optim_results$par)
 vcov  <- solve(optim_results$hessian)
 ```
 
-### Set settings
+We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
+
 ```{r}
-niter <- 50000
-thinning <- 1
-burnin <- 0
-samples <- rwmh_multivariate_log(start, niter, log_posterior_unnormalized, vcov, thinning, burnin)
+samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized, vcov, thinning=1, burnin=0)
 ```
 
 ### Plot samples
