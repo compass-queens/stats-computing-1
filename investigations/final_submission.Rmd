@@ -1,7 +1,6 @@
 ---
 title: "SC1_Proj"
 author: "Alessio"
-date: "13 January 2020"
 output: pdf_document
 urlcolor: blue
 header-includes:
@@ -50,16 +49,16 @@ theme_set(theme_minimal())
 # Introduction
 One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
 
-The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation.
-
-The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
-
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
 
 # Exploratory analysis
-
+We begin by exploring the data to gain some understanding of the features and their relationships to inform further work. We do the majority of the data manipulation and analysis within this report using the tidyverse library. We begin by loading the data as a tibble:
 
 ```{r}
 data <- read_csv("../data/data.csv")
+```
+
+```{r, echo=FALSE}
 colnames(data)[3:32] <- c(
   "radius_m", "texture_m", "perim_m", "area_m", "smooth_m", "compact_m",
   "concav_m", "concav_pt_m", "symmetry_m", "frac_dim_m", "radius_se",
@@ -70,44 +69,54 @@ colnames(data)[3:32] <- c(
 )
 ```
 
-Check for missing values in every column.
+After renaming some variables to some more manageable variables we next have to ensure the hygiene of our data. Through manual inspection it is clear that our data is already in the tidy data format so all that remains is to see if any corrupted data is present:
+
 ```{r}
 colSums(is.na(data))
 ```
 
+From this we can see that the feature parsed as `X33` is not present for any observation and therefore can be removed without any difficulties using `dplyr`
+
+```{r}
+data %<>%
+  dplyr::select(-c(X33))
+```
+
+In order to make the data easier to work with we also need to set the response, the diagnosis of the patient, to be a factor.
 ```{r}
 data %<>% mutate_at(vars(diagnosis), factor)
 ```
 
+The next step before analysing the data is to produce a test/train split in order to evaluate how well our models and methods will generalise which we can do again using `dplyr`. We choose an 80/20 train/test split.
+
 ```{r}
 train <- data %>% sample_frac(0.8)
 test <- anti_join(data, train, by = "id")
+```
 
-# need ids for later
+We also remove the labels and store them elsewhere so that we have the raw data input to analyse.
+
+```{r}
 id_train <- train$id
 id_test <- test$id
-```
 
-```{r}
 data %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 train %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 test %<>%
-  dplyr::select(-c(id, X33))
+  dplyr::select(-c(id))
 ```
 
-```{r}
-sum(is.na(data))
-```
 
-```{r}
+```{r, echo=FALSE}
 training_data <- train[2:dim(train)[2]]
 training_classes <- train[1]
 test_data <- test[2:dim(test)[2]]
 test_classes <- test[1]
 ```
 
+Before continuing with our analysis we need to make sure that the train/test split is representative of the entire data. Below is a plot of the class distribution in the training set on the left and the test set on the right. As can be seen these are fairly even and therefore this split is suitable for analysis.
 ```{r echo=FALSE}
 g1 <- ggplot(training_classes, aes(x = diagnosis, fill = diagnosis)) +
   geom_bar(aes(y = (..count..) / sum(..count..))) +
@@ -130,6 +139,8 @@ g2 <- ggplot(test_classes, aes(x = diagnosis, fill = diagnosis)) +
 ggarrange(g1, g2)
 ```
 
+We now want to try and discover if our data has any exploitable structure that we can use for classification. We can examine the density plots of each feature for each class against each other to see if there are features which have substantially different plots.
+
 ```{r fig.height=40, fig.width=30, echo=FALSE}
 train %>%
   group_by(diagnosis) %>%
@@ -145,7 +156,11 @@ train %>%
   )
 ```
 
+From these plots above we can see that many of the features are, from visual, inspection, approximately normal. Whilst this is not conclusive as per a test however this may justify some techniques for classification which rely on normality of the features (as in the choice of naive bayes below).
 
+Many of the features display little difference in densities between classes however several of the features display noticeable difference which is promising for modelling.
+
+The final plot we want to do is to check the pairwise correlations betwee all pairs of features. 
 ```{r echo=FALSE}
 corr <- training_data[, -1] %>%
   cor() %>%
@@ -154,6 +169,7 @@ corr <- training_data[, -1] %>%
 corrplot(corr, method = "circle", order = "hclust", tl.col = "black")
 ```
 
+This plot shows that a large number of our features are highly correlated which gives us some indication that we can perhaps predict some features from others and reduce the dimension of the data we are working with. Now that we have established that there appears to be some structure within our data and that there appears to be more important variables we can move on with an attempt to reduce the dimensionality of our data.
 \newpage
 # Dimensionality Reduction and Feature Selection
 
@@ -232,8 +248,9 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 <!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
 <!-- #``` -->
 
+
 As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
-  
+
 \newpage
 
 # Classification
@@ -391,6 +408,24 @@ ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
   stat_function(fun = svm_plotter)
 ```
 
+```{r}
+confusion_plot <- function(actual, predicted, method='') {
+  confusion_matrix <- as.data.frame(table(actual, predicted))
+  g <- ggplot(confusion_matrix, aes(x = actual, y = predicted)) +
+    geom_tile(aes(fill = Freq)) +
+    geom_text(aes(label = sprintf("%1.0f", Freq)), color = "white", fontface = "bold") +
+    labs(x = "Actual", y = "Predicted",title=method) +
+    theme_minimal()+
+    theme(legend.position = 'none',
+          plot.title = element_text(hjust=0.5))
+  return(g)
+}
+```
+
+```{r}
+confusion_plot(numeric_test_labels,pred_svm,'SVM')
+```
+
 \newpage
 # Naive Bayes
 ## Mathematical setting
@@ -467,8 +502,8 @@ pred <- apply(probs, 1, which.max)
 ```
 
 ## Fit model to dataset
-
-```{r}
+Fitting the model to the full dataset and the reduced dataset we obtain the following accuracies.
+```{r echo=FALSE}
 levels(training_classes$diagnosis) <- c(0, 1)
 training_classes %<>% as.matrix
 mode(training_classes) <- "numeric"
@@ -478,8 +513,7 @@ test_classes %<>% as.matrix
 mode(test_classes) <- "numeric"
 ```
 
-Fit the Naive Bayes model to the data, calculate predictions and check the accuracy using.
-```{r}
+```{r echo=FALSE}
 model_naive <- naive_bayes(training_data, training_classes)
 
 pred_naive <- predict(model_naive, as.matrix(test_data))
@@ -489,17 +523,27 @@ pred_naive <- predict(model_naive, as.matrix(test_data))
 calc_accuracy <- function(ytest, yhat) sum(drop(yhat) == drop(ytest)) / length(drop(ytest))
 
 acc_naive <- calc_accuracy(test_classes, pred_naive)
-acc_naive
 ```
 
-Fit the model to the PCA-reduced dataset.
-```{r}
+```{r echo=FALSE}
 model_naive_pca <- naive_bayes(pca_result$reduced_data, training_classes)
 
 pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 
 acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
-acc_naive
+```
+
+```{r}
+g1 <- confusion_plot(test_classes,pred_naive,'Naive Bayes on full dataset')
+g2 <- confusion_plot(test_classes,pred_naive_pca,'Naive Bayes on reduced dataset')
+ggarrange(g1,g2)
+```
+
+
+```{r echo=FALSE}
+results_naive <- round(matrix(c(acc_naive,acc_naive_pca)),4)
+rownames(results_naive) <- c('full','reduced')
+kable(results_naive)
 ```
 
 \newpage
@@ -689,6 +733,9 @@ start <- matrix(optim_results$par)
 vcov <- solve(optim_results$hessian)
 ```
 
+We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
+
+
 ```{r samples logistic regression, echo=FALSE}
 samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
@@ -773,41 +820,26 @@ ggplot() +
 \newpage
 # Conclusion
 
-Merge all predictions
 ```{r}
+# merge all predictions
 id <- seq(length(id_test))
-all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_svm)
-colnames(all_pred) <- c("id", "actual", "naive", "svm")
+all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_ga,yhat_map_nm,yhat_mle_bfgs,yhat_mle_ga,yhat_mle_nm)
 all_pred[all_pred == -1] <- 0
 all_pred %<>% as.data.frame()
+colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_ga','map_nm','mle_bfgs','mle_ga','mle_nm')
 ```
 
-```{r}
-confusion_plot <- function(actual, predicted) {
-  confusion_matrix <- as.data.frame(table(actual, predicted))
-  g <- ggplot(confusion_matrix, aes(x = actual, y = predicted)) +
-    geom_tile(aes(fill = Freq)) +
-    geom_text(aes(label = sprintf("%1.0f", Freq)), color = "white", fontface = "bold") +
-    labs(x = "Actual class", y = "Predicted class") +
-    theme_minimal()
-  return(g)
-}
-```
-
-```{r}
-errors <- all_pred %>%
-  mutate(
-    naive = naive == actual,
-    svm = svm == actual,
-    logistic = yhat_map_bfgs == actual
-  ) %>%
-  dplyr::select(-"actual") %>%
-  melt(id = "id")
-```
 
 Visualize which are the observations that the models missclassify.
-```{r}
-ggplot(errors, aes(x = id, y = variable, fill = value)) +
+```{r echo=FALSE}
+all_pred %>% 
+  mutate_at(vars(-c(id,actual)),funs(.==actual)) %>% 
+  dplyr::select(-'actual') %>% 
+  melt(id='id') %>%
+  ggplot(aes(x = id, y = variable, fill = value)) +
   geom_raster() +
   theme_minimal()
 ```
+
+
+
