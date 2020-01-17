@@ -1,6 +1,5 @@
 ---
-title: "SC1_Proj"
-author: "Alessio"
+title: "Breast Cancer Project"
 output: pdf_document
 urlcolor: blue
 header-includes:
@@ -171,6 +170,7 @@ corrplot(corr, method = "circle", order = "hclust", tl.col = "black")
 
 This plot shows that a large number of our features are highly correlated which gives us some indication that we can perhaps predict some features from others and reduce the dimension of the data we are working with. Now that we have established that there appears to be some structure within our data and that there appears to be more important variables we can move on with an attempt to reduce the dimensionality of our data.
 \newpage
+
 # Dimensionality Reduction and Feature Selection
 
 ## PCA
@@ -576,7 +576,7 @@ $$
 $$
 wheras for MAP we have
 $$
-\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma_k\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
+\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
 $$
 
 ### Newton's Method
@@ -820,7 +820,7 @@ ggplot() +
 \newpage
 # Conclusion
 
-```{r}
+```{r, fig.align="center", echo=FALSE}
 # merge all predictions
 id <- seq(length(id_test))
 all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_ga,yhat_map_nm,yhat_mle_bfgs,yhat_mle_ga,yhat_mle_nm)
@@ -831,7 +831,7 @@ colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_
 
 
 Visualize which are the observations that the models missclassify.
-```{r echo=FALSE}
+```{r, fig.align="center", echo=FALSE}
 all_pred %>% 
   mutate_at(vars(-c(id,actual)),funs(.==actual)) %>% 
   dplyr::select(-'actual') %>% 
