@@ -465,9 +465,7 @@ $$y=\underset{y}{\text{argmax}}P(y)\prod_{i=1}^dP(x_i|y).$$
 
 ## Implementation
 
-*Here are some code snippets just to illustrate how these theoretical aspects are implemented. The full code can be found in the package.*
-
-The observations are stored as rows in $X$ and the corresponding class labels are entires in the column matrix $y$.
+The observations must be stored as rows in $X$ and the corresponding class labels as elements in the column matrix $y$.
 
 First we calculate the prior class probabilities based on the number of observations in each class.
 
@@ -514,7 +512,10 @@ for (obs in 1:n) {
 pred <- apply(probs, 1, which.max)
 ```
 
+For package containing the full code can be found at: https://github.com/andreabecsek/NaiveBayes.
+
 ## Fit model to dataset
+We now fit the Naive Bayes model to the full and reduced dataset. The main assumption that we make is that the features are conditionally independent given the labels. While it is quite likely that this assumption will not hold for all the features, this is a common drawback of Naive Bayes and we are going to keep that in mind when interpreting the results. Moreover, by looking at the distributions of the features, we can make the assumption that they are approximately normally distributed.
 Fitting the model to the full dataset and the reduced dataset we obtain the following confusion matrices.
 ```{r echo=FALSE}
 levels(training_classes$diagnosis) <- c(0, 1)
@@ -544,7 +545,7 @@ pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
 ```
 
-```{r fig.width=5, fit.height=3, fig.align='center', fig.cap='Confusion plots for the Naive Bayes predictions on the full dataset (a) and reduced (b).'}
+```{r fig.width=5, fit.height=3, fig.align='center', echo=FALSE, fig.cap='Confusion plots for the Naive Bayes predictions on the full dataset (a) and reduced (b).'}
 g1 <- confusion_plot(test_classes,pred_naive)
 g2 <- confusion_plot(test_classes,pred_naive_pca)
 ggarrange(g1,g2,labels='auto')
