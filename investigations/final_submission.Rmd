@@ -807,7 +807,7 @@ ggplot() +
   coord_cartesian(xlim = c(-550, -300), ylim = c(-550, -300)) +
   geom_line(data = dfsample_lines, aes(x = x1, y = value, group = key), alpha = 0.1, color = "grey50") +
   geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
-  labs(color = "Class", x="Principal Component 1", y="Principal Component 2") +
+  labs(color = TeX("Class"), x=TeX("Principal Component 1"), y=TeX("Principal Component 2")) +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
 
