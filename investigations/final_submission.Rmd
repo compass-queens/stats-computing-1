@@ -29,6 +29,7 @@ library(ggpubr)
 library(reshape2)
 library(gridExtra)
 library(knitr)
+library(latex2exp)
 # install_github("alessio-b-zak/sc1-svm-example-package")
 # install_github("MauroCE/LogisticRegression")
 # install_github("andreabecsek/NaiveBayes")
@@ -774,11 +775,14 @@ grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
 ```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
-  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4") + 
+  labs(x=TeX('$\\beta_0$'))
 hist2 <- ggplot(data = samplesdf, aes(x = X2, stat(density))) +
-  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4") +
+  labs(x=TeX('$\\beta_1$'))
 hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
-  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4") +
+  labs(x=TeX('$\\beta_2$'))
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
@@ -802,7 +806,7 @@ ggplot() +
   coord_cartesian(xlim = c(-550, -300), ylim = c(-550, -300)) +
   geom_line(data = dfsample_lines, aes(x = x1, y = value, group = key), alpha = 0.1, color = "grey50") +
   geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
-  labs(color = "Class") +
+  labs(color = "Class", x="Principal Component 1", y="Principal Component 2") +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
 
