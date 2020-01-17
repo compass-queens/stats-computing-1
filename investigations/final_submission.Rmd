@@ -725,6 +725,8 @@ samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
 ```
 
+\newpage
+
 ```{r, echo=FALSE}
 # MLE, BFGS
 mle_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="BFGS")
@@ -759,16 +761,17 @@ g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded),'MAP-NEWTON
 ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
 ```
 
-From the trace plots we notice the chain is mixing quickly, signalling a good exploratory behavior. The histograms of each coordinate of the samples show RWMH is sampling sensibly.
+The histograms of each coordinate of the samples show RWMH is sampling sensibly.
 
-```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8}
+```{r, echo=FALSE}
 samplesdf <- data.frame(samples) %>% mutate(iterations = row_number())
+```
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8, eval=FALSE}
 trace1 <- ggplot(data = samplesdf, aes(x = iterations, y = X1)) + geom_line()
 trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
-
 ```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
   geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
