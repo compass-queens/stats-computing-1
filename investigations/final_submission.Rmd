@@ -29,6 +29,7 @@ library(ggpubr)
 library(reshape2)
 library(gridExtra)
 library(knitr)
+library(latex2exp)
 # install_github("alessio-b-zak/sc1-svm-example-package")
 # install_github("MauroCE/LogisticRegression")
 # install_github("andreabecsek/NaiveBayes")
@@ -46,9 +47,10 @@ theme_set(theme_minimal())
 ```
 
 # Introduction
-One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
+One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses. 
 
-The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances. The features describe characterstics of the cell nucleus wich three different statistics computed for each feature. The three statistics are the largest value computed of the feature computed for each image indicated with a "_w" appended to the feature name, the mean value of the feature for the image indicated with a "_m" appended, and the standard error. The features computed are the radius of the nuclei, the texture of the nuclei, area, perimeter, smoothness, compactness, concavity, concave points,  symmetry, and fractal dimension.
+
 
 # Exploratory analysis
 We begin by exploring the data to gain some understanding of the features and their relationships to inform further work. We do the majority of the data manipulation and analysis within this report using the tidyverse library. We begin by loading the data as a tibble:
@@ -248,13 +250,13 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 ```
   
 
-As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
+As we can see from this plot there is clearly some structure within the data that we can exploit for classification. This reduced dataset and transformation matrix will be used in classification attempts in the next section.
 
 \newpage
 
 # Classification
 
-add list of methods+measure 
+In this section we will explore various approaches of classifying the data. This includes using SVMs, Naive Bayes, and frequentist and bayesian approaches to logistic regression. We begin with SVMs applied to the reduced dataset.
 
 ## SVM
 From the application of PCA to the dataset we can see that, after reducing to 2 dimensions, the data appears to be almost linearly separable. Given this, an appropriate method of classifying the data would be to apply a soft-margin SVM to the reduced dimension data. Soft-margin SVMs solve the problem of classifying non-separable data by permitting a certain number of points to be incorrectly classifed however the number and the amount they violate the constraints by must be as small as possible. After manipulating the reformulated optimisation problem we end up with the optimisation problem
@@ -728,6 +730,8 @@ samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
 ```
 
+\newpage
+
 ```{r, echo=FALSE}
 # MLE, BFGS
 mle_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="BFGS")
@@ -762,23 +766,27 @@ g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded),'MAP-NEWTON
 ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
 ```
 
-From the trace plots we notice the chain is mixing quickly, signalling a good exploratory behavior. The histograms of each coordinate of the samples show RWMH is sampling sensibly.
+The histograms of each coordinate of the samples show RWMH is sampling sensibly.
 
-```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8}
+```{r, echo=FALSE}
 samplesdf <- data.frame(samples) %>% mutate(iterations = row_number())
+```
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8, eval=FALSE}
 trace1 <- ggplot(data = samplesdf, aes(x = iterations, y = X1)) + geom_line()
 trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
-
 ```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
-  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4") + 
+  labs(x=TeX('$\\beta_0$'))
 hist2 <- ggplot(data = samplesdf, aes(x = X2, stat(density))) +
-  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4") +
+  labs(x=TeX('$\\beta_1$'))
 hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
-  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
+  geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4") +
+  labs(x=TeX('$\\beta_2$'))
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
@@ -802,9 +810,7 @@ ggplot() +
   coord_cartesian(xlim = c(-550, -300), ylim = c(-550, -300)) +
   geom_line(data = dfsample_lines, aes(x = x1, y = value, group = key), alpha = 0.1, color = "grey50") +
   geom_line(data = dfmap, aes(x = x1, y = y), color = "black") + # MAP line
-  labs(color = "Class") +
-  xlab('Principal Component 1')+
-  ylab('Principal Component 2')+
+  labs(color = TeX("Class"), x=TeX("Principal Component 1"), y=TeX("Principal Component 2")) +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
 
