@@ -239,15 +239,6 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
       geom_point(aes(colour = diagnosis))
 ```
   
-<!-- # tSNE  -->
-<!-- #TODO: try different perplexity parameters -->
-<!-- #```{r} -->
-<!-- #reduced_training_data <- tsne::tsne(training_data) -->
-<!-- # -->
-<!-- #reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes)) -->
-<!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
-<!-- #``` -->
-
 
 As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
 
@@ -396,19 +387,8 @@ pca_reduced_test_data <- t(apply(as.matrix(test_data), 1, function(x) x %*%
 pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 ```
 
-When running the trained SVM prediction functio on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
 
-```{r, echo=FALSE}
-svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
-embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
-                                pca_result$reduction_matrix), test_classes)
-
-ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
-  geom_point(aes(colour = diagnosis)) +
-  stat_function(fun = svm_plotter)
-```
-
-```{r}
+```{r echo = FALSE}
 confusion_plot <- function(actual, predicted, method='') {
   confusion_matrix <- as.data.frame(table(actual, predicted))
   g <- ggplot(confusion_matrix, aes(x = actual, y = predicted)) +
@@ -422,9 +402,22 @@ confusion_plot <- function(actual, predicted, method='') {
 }
 ```
 
-```{r}
+```{r out.width='60%',fig.asp=0.7, fig.align='center'}
 confusion_plot(numeric_test_labels,pred_svm,'SVM')
 ```
+
+When running the trained SVM prediction function on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
+
+```{r, echo=FALSE}
+svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
+embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
+                                pca_result$reduction_matrix), test_classes)
+
+ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
+  geom_point(aes(colour = diagnosis)) +
+  stat_function(fun = svm_plotter)
+```
+
 
 \newpage
 # Naive Bayes
@@ -533,7 +526,7 @@ pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
 ```
 
-```{r}
+```{r fig.width=7, fit.height=4, fig.align='center'}
 g1 <- confusion_plot(test_classes,pred_naive,'Naive Bayes on full dataset')
 g2 <- confusion_plot(test_classes,pred_naive_pca,'Naive Bayes on reduced dataset')
 ggarrange(g1,g2)
@@ -658,6 +651,16 @@ results <- data.frame(results_matrix)
 kable(results)
 ```
 
+```{r fig.width=7, fit.height=5, fig.align='center'}
+g1 <- confusion_plot(test_classes, yhat_mle_bfgs,'MLE-BFGS')
+g2 <- confusion_plot(test_classes, yhat_mle_nm,'MLE-NEWTON')
+
+g3 <- confusion_plot(test_classes, yhat_map_bfgs,'MAP-BFGS')
+g4 <- confusion_plot(test_classes, yhat_map_nm,'MAP-NEWTON')
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+```
+
+
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
 Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D and then sample from the 
 (unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
@@ -774,6 +777,15 @@ embedded_results_lr <- data.frame(embedded_results_lr)
 kable(embedded_results_lr)
 ```
 
+```{r fig.width=9, fit.height=5, fig.align='center'}
+g1 <- confusion_plot(test_classes, predict(mle_bfgs_r, Xtest_embedded),'MLE-BFGS')
+g2 <- confusion_plot(test_classes, predict(mle_nm_r, Xtest_embedded),'MLE-NEWTON')
+
+g3 <- confusion_plot(test_classes, predict(map_bfgs_r, Xtest_embedded),'MAP-BFGS')
+g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded),'MAP-NEWTON')
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+```
+
 From the trace plots we notice the chain is mixing quickly, signalling a good exploratory behavior. The histograms of each coordinate of the samples show RWMH is sampling sensibly.
 
 ```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8}
@@ -824,10 +836,10 @@ ggplot() +
 ```{r, fig.align="center", echo=FALSE}
 # merge all predictions
 id <- seq(length(id_test))
-all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_ga,yhat_map_nm,yhat_mle_bfgs,yhat_mle_ga,yhat_mle_nm)
+all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_nm,yhat_mle_bfgs,yhat_mle_nm)
 all_pred[all_pred == -1] <- 0
 all_pred %<>% as.data.frame()
-colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_ga','map_nm','mle_bfgs','mle_ga','mle_nm')
+colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_nm','mle_bfgs','mle_nm')
 ```
 
 
