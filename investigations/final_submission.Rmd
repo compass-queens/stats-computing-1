@@ -48,10 +48,16 @@ theme_set(theme_minimal())
 ```
 
 # Introduction
-One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses. 
+One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
 
-The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances. The features describe characterstics of the cell nucleus wich three different statistics computed for each feature. The three statistics are the largest value computed of the feature computed for each image indicated with a "_w" appended to the feature name, the mean value of the feature for the image indicated with a "_m" appended, and the standard error. The features computed are the radius of the nuclei, the texture of the nuclei, area, perimeter, smoothness, compactness, concavity, concave points,  symmetry, and fractal dimension.
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances. The features describe characterstics of the cell nucleus wich three different statistics computed for each feature. The three statistics are the largest value computed of the feature computed for each image indicated with a `_w` appended to the feature name, the mean value of the feature for the image indicated with a `_m` appended, and the standard error indicated with `_se`. The features computed are the radius of the nuclei, the texture of the nuclei, area, perimeter, smoothness, compactness, concavity, concave points,  symmetry, and fractal dimension.
 
+Packages have produced for each statistical technique employed within this portfolio which can be found in the following places:  
+  - [SVM](https://github.com/alessio-b-zak/sc1-svm-example-package)   
+  - [Naive Bayes](https://github.com/andreabecsek/NaiveBayes)  
+  - [Logistic Regression](https://github.com/MauroCE/LogisticRegression)  
+  
+And the `RMarkdown` for this report can be found [here](https://github.com/compass-queens/stats-computing-1/blob/master/investigations/final_submission.Rmd)
 
 # Exploratory analysis
 We begin by exploring the data to gain some understanding of the features and their relationships to inform further work. We do the majority of the data manipulation and analysis within this report using the tidyverse library. We begin by loading the data as a tibble:
@@ -830,6 +836,16 @@ We can see that Logistic Regression finds a decision boundary that does not refl
 \newpage
 # Conclusion
 
+From our attempts to create classifiers for the breast cancer dataset we can see that test set performance is maxsimised by the logistic regression MLE solution optimised using BFGS. This, however, does not lead to the conclusion that we must or should use this in the future to attempt to predict breast cancer diagnoses. The reason for this is as follows: By visual inspection we can see that the logisitc regression decision boundary could be vulnerable to peturbations in the data along the axis perpendicular to the decision boundary. In contrast the decision boundary defined by the SVM appears to be more robust with respect to peturbations along its perpendicular axis. To test this theory one could perform cross validation across the entire dataset to see if both methods are robust to different splits of the data.
+
+Given that all methods achieve reasonably high accuracy we may wish to show preference for methods that have a probabilistic interpretation such as logisitic regression (particularly the bayesian approach) and naive bayes as we are able then to quantify the uncertainty of our predictions which may be useful in a medical setting where we may want to reject low confidence predictions. 
+
+One of the assumptions required in the naive bayes model is conditional indepdence of features given the class. We did not assess this formally however given the accuracy of the prediction it is not an unreasonable assumption  that the features are approximately conditionally independent given class.
+
+In plot 12 we can see the misclassifications plotted for each classification across all observations. From this plot we can see that there are several commonly misclassified points. From this observation it is not unreasonable to presume that the points that are misclassified represent genuine outliers and that attempting to produce a more complex classifier which correctly predicts these points could lead to overfitting. 
+
+All these conclusions could and should be supported by formal tests on further data collected.
+
 ```{r, fig.align="center", echo=FALSE}
 # merge all predictions
 id <- seq(length(id_test))
@@ -840,7 +856,6 @@ colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_
 ```
 
 
-Visualize which are the observations that the models missclassify.
 ```{r, fig.align="center", echo=FALSE, fig.cap='Plot of misclassified observations for each method.'}
 all_pred %>% 
   mutate_at(vars(-c(id,actual)),funs(.==actual)) %>% 
