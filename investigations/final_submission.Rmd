@@ -240,15 +240,6 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
       geom_point(aes(colour = diagnosis))
 ```
   
-<!-- # tSNE  -->
-<!-- #TODO: try different perplexity parameters -->
-<!-- #```{r} -->
-<!-- #reduced_training_data <- tsne::tsne(training_data) -->
-<!-- # -->
-<!-- #reduced_training_data <- data.frame(cbind(reduced_training_data, training_classes)) -->
-<!-- #ggplot(data=reduced_training_data, aes(x=X1, y=X2)) + geom_point(aes(colour=diagnosis)) -->
-<!-- #``` -->
-
 
 As we can see from this plot there is clearly some structure within the data that we can exploit for classification. This reduced dataset and transformation matrix will be used in classification attempts in the next section.
 
@@ -397,19 +388,8 @@ pca_reduced_test_data <- t(apply(as.matrix(test_data), 1, function(x) x %*%
 pred_svm <- apply(as.matrix(test_data),1, pca_reduced_prediction_fn)
 ```
 
-When running the trained SVM prediction functio on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
 
-```{r, echo=FALSE}
-svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
-embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
-                                pca_result$reduction_matrix), test_classes)
-
-ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
-  geom_point(aes(colour = diagnosis)) +
-  stat_function(fun = svm_plotter)
-```
-
-```{r}
+```{r echo = FALSE}
 confusion_plot <- function(actual, predicted, method='') {
   confusion_matrix <- as.data.frame(table(actual, predicted))
   g <- ggplot(confusion_matrix, aes(x = actual, y = predicted)) +
@@ -423,9 +403,22 @@ confusion_plot <- function(actual, predicted, method='') {
 }
 ```
 
-```{r}
+```{r out.width='60%',fig.asp=0.7, fig.align='center'}
 confusion_plot(numeric_test_labels,pred_svm,'SVM')
 ```
+
+When running the trained SVM prediction function on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
+
+```{r, echo=FALSE}
+svm_plotter <- soft_margin_svm_plotter(model$params$w, model$params$b)
+embedded_test_data <- data.frame(cbind(as.matrix(test_data) %*%
+                                pca_result$reduction_matrix), test_classes)
+
+ggplot(embedded_test_data, aes(x = as.numeric(X1), y = as.numeric(X2))) +
+  geom_point(aes(colour = diagnosis)) +
+  stat_function(fun = svm_plotter)
+```
+
 
 \newpage
 # Naive Bayes
@@ -534,7 +527,7 @@ pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
 ```
 
-```{r}
+```{r fig.width=7, fit.height=4, fig.align='center'}
 g1 <- confusion_plot(test_classes,pred_naive,'Naive Bayes on full dataset')
 g2 <- confusion_plot(test_classes,pred_naive_pca,'Naive Bayes on reduced dataset')
 ggarrange(g1,g2)
@@ -570,16 +563,6 @@ $$
 \min_{\vbeta} \sigma^2_{\vbeta}\sum_{i=1}^n\ln\left(1 + \exp((1 - 2y_i)\vx_i^\top\vbeta)\right) + \frac{1}{2}\vbeta^\top\vbeta
 $$
 
-### Gradient Ascent
-Maximum Likelihood updates take the form
-$$
-\vbeta_{k+1} \leftarrow \vbeta_k + \gamma X^\top(\vy - \sigma(X\vbeta_k))
-$$
-wheras for MAP we have
-$$
-\vbeta_{k+1}\leftarrow  \vbeta_k + \gamma\left[\sigma_{\vbeta}^2X^\top(\vy - \sigma(X\vbeta_k)) - \vbeta_k\right]
-$$
-
 ### Newton's Method
 For stability, we add a learning rate, which is in practice often set to $\alpha=0.1$. The
 iterations for Maximum Likelihood take the form of
@@ -600,13 +583,19 @@ $$
 $$
 
 ## Implementation and Results
+The cost functions for maximum likelihood estimation and for maximum a posteriori can be implemented as follows.
+```{r}
+mle_cost <- function(beta) sum(log(1 + exp((1 - 2*y) * (X %*% beta))))
+map_cost <- function(beta) (sigmab^2)*mle_cost(beta) + 0.5*sum(beta^2)
+```
+
 Notice that differently from the methods used above, Logistic Regression requires our data to have a 
 constant feature of $1$s in order to fit the bias coefficient. 
 ```{r train test logistic regression, echo=FALSE}
 Xtrain <- as.matrix(cbind(1, training_data))
 Xtest <- as.matrix(cbind(1, test_data))
 ```
-We've implemented from scratch Newton's Method and Gradient Ascent for both Maximum Likelihood Estimation
+We've implemented from scratch Newton's Method for both Maximum Likelihood Estimation
 and Maximum-A-Posteriori, with the formulas shown above. In addition, we've used the BFGS implementation 
 provided by the R `optim` function. 
 
@@ -621,11 +610,6 @@ map_nm <- logistic_regression(Xtrain, training_classes, cost = "MAP",
                               method = "NEWTON", niter = 250)
 yhat_map_nm <- predict(map_nm, Xtest)
 acc_map_nm <- calc_accuracy(test_classes, yhat_map_nm)
-# MAP, GRADIENT ASCENT
-map_ga <- logistic_regression(Xtrain, training_classes, cost = "MAP", 
-                              method = "GA", niter = 1000)
-yhat_map_ga <- predict(map_ga, Xtest)
-acc_map_ga <- calc_accuracy(test_classes, yhat_map_ga)
 ```
 
 ```{r MLE logistic regression, echo=FALSE}
@@ -639,32 +623,35 @@ mle_nm <- logistic_regression(Xtrain, training_classes, cost = "MLE",
                               method = "NEWTON", niter = 250)
 yhat_mle_nm <- predict(mle_nm, Xtest)
 acc_mle_nm <- calc_accuracy(test_classes, yhat_mle_nm)
-# MLE, GRADIENT ASCENT
-mle_ga <- logistic_regression(Xtrain, training_classes, cost = "MLE", 
-                              method = "GA", niter = 1000)
-yhat_mle_ga <- predict(mle_ga, Xtest)
-acc_mle_ga <- calc_accuracy(test_classes, yhat_mle_ga)
 ```
-Below we can see the accuracy of the different optimization methods (BFGS, Newton's method and Gradient Ascent) on the different cost functions (MAP or MLE).
+Below we can see the accuracy of the different optimization methods (BFGS and Newton's method) on the different cost functions (MAP or MLE).
 ```{r MAP and MLE results logistic regression, echo=FALSE}
 # put everything together into a nice table
 results_matrix <- matrix(c(
-  acc_mle_bfgs, acc_mle_nm, acc_mle_ga,
-  acc_map_bfgs, acc_map_nm, acc_map_ga
+  acc_mle_bfgs, acc_mle_nm,
+  acc_map_bfgs, acc_map_nm
 ),
-dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
-nrow = 3, ncol = 2
+dimnames = list(c("BFGS", "NM"), c("MLE", "MAP")),
+nrow = 2, ncol = 2
 )
 results <- data.frame(results_matrix)
 kable(results)
 ```
 
+```{r fig.width=7, fit.height=5, fig.align='center',echo=FALSE}
+g1 <- confusion_plot(test_classes, yhat_mle_bfgs,'MLE-BFGS')
+g2 <- confusion_plot(test_classes, yhat_mle_nm,'MLE-NEWTON')
+
+g3 <- confusion_plot(test_classes, yhat_map_bfgs,'MAP-BFGS')
+g4 <- confusion_plot(test_classes, yhat_map_nm,'MAP-NEWTON')
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+```
+
+
+Both MAP and MLE fail to provide us with uncertainty estimates. A fully-Bayesian approach is intractable due to the form of the joint likelihood but we can obtain samples from the posterior using a Random-Walk Metropolis Hastings algorithm. These samples will be parameter vectors defining different decision boundaries. In the following section we sample from the logistic posterior where the dataset has been embedded in two dimensions using PCA. This allows us to plot the decision boundaries given by the samples and thus have an idea of the uncertainty described by the posterior distribution.
+
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
-Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D and then sample from the 
-(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
-In particular, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. 
-To make it more efficient we can work with the log posterior and change the decision rule. I
-In addition, we can pre-calculate all the normal and uniform samples and just access them later. The full algorithm that we will be using is as follows
+Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Below we implement a function for the Random-Walk Metropolis-Hastings algorithm and, to make it more efficient, we work with the log posterior, modify the decision rule and pre-calculate all the normal and uniform samples.
 
 \RestyleAlgo{boxruled}
 \begin{algorithm}[ht]
@@ -717,7 +704,7 @@ Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
 Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
 ```
 
-We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal.
+We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal, so that the algorithm won't waste in regions of the state space that have no mass due to a poor initial guess.
 
 ```{r log posterior and optim logistic regression, echo=FALSE}
 # up to normalizing constant
@@ -734,13 +721,12 @@ start <- matrix(optim_results$par)
 vcov <- solve(optim_results$hessian)
 ```
 
-We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
-
-
 ```{r samples logistic regression, echo=FALSE}
 samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
                                  vcov, thinning=1, burnin=0)
 ```
+
+\newpage
 
 ```{r, echo=FALSE}
 # MLE, BFGS
@@ -749,36 +735,39 @@ acc_mle_bfgs_r <- calc_accuracy(test_classes, predict(mle_bfgs_r, Xtest_embedded
 # MLE, NEWTON
 mle_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="NEWTON")
 acc_mle_nm_r <- calc_accuracy(test_classes, predict(mle_nm_r, Xtest_embedded))
-# MLE, GRADIENT ASCENT
-mle_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MLE", method="GA",
-                                niter=3000)
-acc_mle_ga_r <- calc_accuracy(test_classes, predict(mle_ga_r, Xtest_embedded))
 # MAP, BFGS
 map_bfgs_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="BFGS")
 acc_map_bfgs_r <- calc_accuracy(test_classes, predict(map_bfgs_r, Xtest_embedded))
 # MAP, NEWTON
 map_nm_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="NEWTON")
 acc_map_nm_r <- calc_accuracy(test_classes, predict(map_nm_r, Xtest_embedded))
-# MAP, GRADIENT ASCENT
-map_ga_r <- logistic_regression(Xrwmh, training_classes, cost="MAP", method="GA",
-                                niter=3000)
-acc_map_ga_r <- calc_accuracy(test_classes, predict(map_ga_r, Xtest_embedded))
 # nice table
 embedded_results_lr <- matrix(c(
-  acc_mle_bfgs_r, acc_mle_nm_r, acc_mle_ga_r,
-  acc_map_bfgs_r, acc_map_nm_r, acc_map_ga_r
+  acc_mle_bfgs_r, acc_mle_nm_r,
+  acc_map_bfgs_r, acc_map_nm_r
 ),
-dimnames = list(c("BFGS", "NM", "GA"), c("MLE", "MAP")),
-nrow = 3, ncol = 2
+dimnames = list(c("BFGS", "NM"), c("MLE", "MAP")),
+nrow = 2, ncol = 2
 )
 embedded_results_lr <- data.frame(embedded_results_lr)
 kable(embedded_results_lr)
 ```
 
-From the trace plots we notice the chain is mixing quickly, signalling a good exploratory behavior. The histograms of each coordinate of the samples show RWMH is sampling sensibly.
+```{r fig.width=9, fit.height=5, fig.align='center', echo=FALSE}
+g1 <- confusion_plot(test_classes, predict(mle_bfgs_r, Xtest_embedded),'MLE-BFGS')
+g2 <- confusion_plot(test_classes, predict(mle_nm_r, Xtest_embedded),'MLE-NEWTON')
 
-```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8}
+g3 <- confusion_plot(test_classes, predict(map_bfgs_r, Xtest_embedded),'MAP-BFGS')
+g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded),'MAP-NEWTON')
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+```
+
+The histograms of each coordinate of the samples show RWMH is sampling sensibly.
+
+```{r, echo=FALSE}
 samplesdf <- data.frame(samples) %>% mutate(iterations = row_number())
+```
+```{r, echo=FALSE, fig.align="center", fig.height=4, fig.width=8, eval=FALSE}
 trace1 <- ggplot(data = samplesdf, aes(x = iterations, y = X1)) + geom_line()
 trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
@@ -794,7 +783,7 @@ hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
-The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
+The next thing to do is to plot the decision boundary given by $\vbeta_{\text{MAP}}$ and the decision boundaries given by (some) of the samples from the posterior. 
 
 ```{r, echo=FALSE, fig.align="center", fig.height=3, fig.width=6}
 samples_to_select <- 200
@@ -818,16 +807,18 @@ ggplot() +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
 
+We can see that Logistic Regression finds a decision boundary that does not reflect what we would expect it to be. In particular, we can see that the points seem to lie on a line with very little variance along the perpendicular direction and since, differently from SVMs, Logistic Regression has no concept of a margin, it settles for a boundary that would easily allow points to be misclassified if they were perturbed along the perpendicular direction. This is also reflected in the confidence of the posterior distribution, having samples which give very similar decision boundaries.
+
 \newpage
 # Conclusion
 
 ```{r, fig.align="center", echo=FALSE}
 # merge all predictions
 id <- seq(length(id_test))
-all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_ga,yhat_map_nm,yhat_mle_bfgs,yhat_mle_ga,yhat_mle_nm)
+all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_nm,yhat_mle_bfgs,yhat_mle_nm)
 all_pred[all_pred == -1] <- 0
 all_pred %<>% as.data.frame()
-colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_ga','map_nm','mle_bfgs','mle_ga','mle_nm')
+colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_nm','mle_bfgs','mle_nm')
 ```
 
 
