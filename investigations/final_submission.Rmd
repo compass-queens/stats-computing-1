@@ -599,6 +599,12 @@ $$
 $$
 
 ## Implementation and Results
+The cost functions for maximum likelihood estimation and for maximum a posteriori can be implemented as follows.
+```{r}
+mle_cost <- function(beta) sum(log(1 + exp((1 - 2*y) * (X %*% beta))))
+map_cost <- function(beta) (sigmab^2)*mle_cost(beta) + 0.5*sum(beta^2)
+```
+
 Notice that differently from the methods used above, Logistic Regression requires our data to have a 
 constant feature of $1$s in order to fit the bias coefficient. 
 ```{r train test logistic regression, echo=FALSE}
@@ -658,12 +664,10 @@ results <- data.frame(results_matrix)
 kable(results)
 ```
 
+Both MAP and MLE fail to provide us with uncertainty estimates. A fully-Bayesian approach is intractable due to the form of the joint likelihood but we can obtain samples from the posterior using a Random-Walk Metropolis Hastings algorithm. These samples will be parameter vectors defining different decision boundaries. In the following section we sample from the logistic posterior where the dataset has been embedded in two dimensions using PCA. This allows us to plot the decision boundaries given by the samples and thus have an idea of the uncertainty described by the posterior distribution.
+
 ### Random-Walk Metropolis-Hastings Implementation on Reduced Data
-Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Since we will be working in two dimensions, this allow us to plot the results more neatly in 2D and then sample from the 
-(unnormalized) log posterior for Logistic Regression and therefore have a measure of uncertainty around our decision boundary.
-In particular, we can define a function that performs Random Walk Metropolis Hastings with a normal proposal distribution. 
-To make it more efficient we can work with the log posterior and change the decision rule. I
-In addition, we can pre-calculate all the normal and uniform samples and just access them later. The full algorithm that we will be using is as follows
+Similarly as to what we've done with SVMs and Naive Bayes, we can apply Logistic Regression to the data after it has been reduced to two dimensions using PCA. Below we implement a function for the Random-Walk Metropolis-Hastings algorithm and, to make it more efficient, we work with the log posterior, modify the decision rule and pre-calculate all the normal and uniform samples.
 
 \RestyleAlgo{boxruled}
 \begin{algorithm}[ht]
@@ -716,7 +720,7 @@ Xrwmh <- cbind(1, as.matrix(pca_reduced_training_data[, c(1, 2)]))
 Xtest_embedded <- cbind(1, as.matrix(embedded_test_data[, c(1, 2)]))
 ```
 
-We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal.
+We start our RWMH using the MAP estimate and we use the inverse of the approximated hessian matrix (returned by `optim`) as the variance-covariance matrix for the proposal, so that the algorithm won't waste in regions of the state space that have no mass due to a poor initial guess.
 
 ```{r log posterior and optim logistic regression, echo=FALSE}
 # up to normalizing constant
@@ -732,9 +736,6 @@ start <- matrix(optim_results$par)
 # Use inverse of approximate hessian matrix as vcov of normal proposal
 vcov <- solve(optim_results$hessian)
 ```
-
-We're now ready to start sampling starting at the MAP estimate and using, as a proposal, the normal distribution with variance-covariance matrix given by the inverse of the approximated hessian matrix coming from the optimization routine.
-
 
 ```{r samples logistic regression, echo=FALSE}
 samples <- rwmh_multivariate_log(start, niter=50000, log_posterior_unnormalized,
@@ -793,7 +794,7 @@ hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
-The next thing to do is to plot the decision boundary found by BFGS together with the sampled lines. 
+The next thing to do is to plot the decision boundary given by $\vbeta_{\text{MAP}}$ and the decision boundaries given by (some) of the samples from the posterior. 
 
 ```{r, echo=FALSE, fig.align="center", fig.height=3, fig.width=6}
 samples_to_select <- 200
@@ -816,6 +817,8 @@ ggplot() +
   labs(color = "Class") +
   theme(plot.title = element_text(hjust = 0.5, size = 20))
 ```
+
+We can see that Logistic Regression finds a decision boundary that does not reflect what we would expect it to be. In particular, we can see that the points seem to lie on a line with very little variance along the perpendicular direction and since, differently from SVMs, Logistic Regression has no concept of a margin, it settles for a boundary that would easily allow points to be misclassified if they were perturbed along the perpendicular direction. This is also reflected in the confidence of the posterior distribution, having samples which give very similar decision boundaries.
 
 \newpage
 # Conclusion
