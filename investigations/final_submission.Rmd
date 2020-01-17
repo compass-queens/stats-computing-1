@@ -46,9 +46,10 @@ theme_set(theme_minimal())
 ```
 
 # Introduction
-One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses.
+One of the most common types of cancer diagnosed in women is breast cancer. There are multiple tests that people are subjected to, but one of the most indicative ones is fine needle aspiration which involes extracting a sample of cells to be examined under a microscope. Multiple numerical metrics are computed from the obtained images. The aim is to use the extracted metrics to make accurate diagnoses. 
 
-The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances.
+The dataset consists of $569$ images which have been processed as described and a total of $30$ variables have been computed for each observation. The aim of this report is to implement a number of classification algorithms, use them to obtain predictions, and compare their performances. The features describe characterstics of the cell nucleus wich three different statistics computed for each feature. The three statistics are the largest value computed of the feature computed for each image indicated with a "_w" appended to the feature name, the mean value of the feature for the image indicated with a "_m" appended, and the standard error. The features computed are the radius of the nuclei, the texture of the nuclei, area, perimeter, smoothness, compactness, concavity, concave points,  symmetry, and fractal dimension.
+
 
 # Exploratory analysis
 We begin by exploring the data to gain some understanding of the features and their relationships to inform further work. We do the majority of the data manipulation and analysis within this report using the tidyverse library. We begin by loading the data as a tibble:
@@ -249,13 +250,13 @@ ggplot(data = pca_reduced_training_data, aes(x = X1, y = X2)) +
 <!-- #``` -->
 
 
-As we can see from this plot there is clearly some structure within the data that we can exploit for classification.
+As we can see from this plot there is clearly some structure within the data that we can exploit for classification. This reduced dataset and transformation matrix will be used in classification attempts in the next section.
 
 \newpage
 
 # Classification
 
-add list of methods+measure 
+In this section we will explore various approaches of classifying the data. This includes using SVMs, Naive Bayes, and frequentist and bayesian approaches to logistic regression. We begin with SVMs applied to the reduced dataset.
 
 ## SVM
 From the application of PCA to the dataset we can see that, after reducing to 2 dimensions, the data appears to be almost linearly separable. Given this, an appropriate method of classifying the data would be to apply a soft-margin SVM to the reduced dimension data. Soft-margin SVMs solve the problem of classifying non-separable data by permitting a certain number of points to be incorrectly classifed however the number and the amount they violate the constraints by must be as small as possible. After manipulating the reformulated optimisation problem we end up with the optimisation problem
