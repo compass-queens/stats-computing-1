@@ -36,6 +36,7 @@ library(latex2exp)
 library(alessiosvm)
 library(LogisticRegression)
 library(NaiveBayes)
+set.seed(5)
 ```
 
 ```{r setup, include=FALSE}
@@ -369,7 +370,11 @@ numeric_test_labels <- apply(test_classes, 1, factor_to_label)
 numeric_training_labels <- apply(training_classes, 1, factor_to_label)
 ```
 
-TODO: prediction function
+Using the extracted parameters $w$ and $b$ we can create a classification function
+
+$$
+f(x) = \text{sign}(w \cdot x) + b
+$$
 
 We are now able to define a function which first embeds the vector in the reduced space and then predicts the class based upon the prediction function produced by the parameters found by the SVM. Below is code that will do the following based upon a package written for this assignment found [here](https://github.com/alessio-b-zak/sc1-svm-example-package)
 ```{r}
