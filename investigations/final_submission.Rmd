@@ -783,6 +783,7 @@ trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
+
 ```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
   geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4")
