@@ -36,6 +36,7 @@ library(latex2exp)
 library(alessiosvm)
 library(LogisticRegression)
 library(NaiveBayes)
+set.seed(5)
 ```
 
 ```{r setup, include=FALSE}
