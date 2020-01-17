@@ -118,7 +118,7 @@ test_classes <- test[1]
 ```
 
 Before continuing with our analysis we need to make sure that the train/test split is representative of the entire data. Below is a plot of the class distribution in the training set on the left and the test set on the right. As can be seen these are fairly even and therefore this split is suitable for analysis.
-```{r echo=FALSE, fig.cap='Class distribution of the training (left) and test data (right).'}
+```{r echo=FALSE}
 g1 <- ggplot(training_classes, aes(x = diagnosis, fill = diagnosis)) +
   geom_bar(aes(y = (..count..) / sum(..count..))) +
   theme_minimal()+
@@ -137,7 +137,10 @@ g2 <- ggplot(test_classes, aes(x = diagnosis, fill = diagnosis)) +
     axis.title.y = element_blank(),
     legend.position = "none"
   )
-ggarrange(g1, g2)
+```
+
+```{r echo=FALSE, fig.cap='Class distribution of the training (a) and test data (b).'}
+ggarrange(g1, g2,labels=c('a','b'))
 ```
 
 We now want to try and discover if our data has any exploitable structure that we can use for classification. We can examine the density plots of each feature for each class against each other to see if there are features which have substantially different plots.
@@ -413,7 +416,7 @@ confusion_plot <- function(actual, predicted, method='') {
 ```
 
 ```{r fig.width=3,fig.height=3, fig.align='center', fig.cap='Confusion plot for SVM predictions.'}
-confusion_plot(numeric_test_labels,pred_svm,'SVM')
+confusion_plot(numeric_test_labels,pred_svm)
 ```
 
 When running the trained SVM prediction function on the test set we achieve `r accuracy_calc(numeric_test_labels, pred_svm)` %. We can plot this code as below
@@ -536,10 +539,10 @@ pred_naive_pca <- predict(model_naive_pca, pca_reduced_test_data)
 acc_naive_pca <- calc_accuracy(test_classes, pred_naive_pca)
 ```
 
-```{r fig.width=6, fit.height=3, fig.align='center', fig.cap='Confusion plots for the Naive Bayes predictions on the full dataset (left) and reduced (right).'}
-g1 <- confusion_plot(test_classes,pred_naive,'Naive Bayes on full dataset')
-g2 <- confusion_plot(test_classes,pred_naive_pca,'Naive Bayes on reduced dataset')
-ggarrange(g1,g2)
+```{r fig.width=5, fit.height=3, fig.align='center', fig.cap='Confusion plots for the Naive Bayes predictions on the full dataset (a) and reduced (b).'}
+g1 <- confusion_plot(test_classes,pred_naive)
+g2 <- confusion_plot(test_classes,pred_naive_pca)
+ggarrange(g1,g2,labels='auto')
 ```
 
 Therefore, fitting a Naive Bayes model on the full dataset has an accuracy of `r acc_naive`, while on the reduced dataset it obtains `r acc_naive_pca`.
@@ -642,13 +645,14 @@ results <- data.frame(results_matrix)
 kable(results)
 ```
 
-```{r fig.width=7, fit.height=5, fig.align='center',echo=FALSE}
-g1 <- confusion_plot(test_classes, yhat_mle_bfgs,'MLE-BFGS')
-g2 <- confusion_plot(test_classes, yhat_mle_nm,'MLE-NEWTON')
+```{r fig.width=7, fit.height=5, fig.align='center',echo=FALSE, fig.cap='Confusion matrices for predictions given by Logistic Regression on the full dataset. a. Cost function: MLE, Optimization method: BFGS, b. Cost function: MLE, Optimization method: Newton, c. Cost function: MAP, Optimization method: BFGS, d. Cost function: MAP, Optimization method: Newton'}
 
-g3 <- confusion_plot(test_classes, yhat_map_bfgs,'MAP-BFGS')
-g4 <- confusion_plot(test_classes, yhat_map_nm,'MAP-NEWTON')
-ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+g1 <- confusion_plot(test_classes, yhat_mle_bfgs)
+g2 <- confusion_plot(test_classes, yhat_mle_nm)
+
+g3 <- confusion_plot(test_classes, yhat_map_bfgs)
+g4 <- confusion_plot(test_classes, yhat_map_nm)
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2,labels = c('a','b','c','d'))
 ```
 
 
@@ -757,13 +761,13 @@ embedded_results_lr <- data.frame(embedded_results_lr)
 kable(embedded_results_lr)
 ```
 
-```{r fig.width=9, fit.height=5, fig.align='center', echo=FALSE}
-g1 <- confusion_plot(test_classes, predict(mle_bfgs_r, Xtest_embedded),'MLE-BFGS')
-g2 <- confusion_plot(test_classes, predict(mle_nm_r, Xtest_embedded),'MLE-NEWTON')
+```{r fig.width=9, fit.height=5, fig.align='center', echo=FALSE, fig.cap='Confusion matrices for predictions given by Logistic Regression on the reduced dataset. a. Cost function: MLE, Optimization method: BFGS, b. Cost function: MLE, Optimization method: Newton, c. Cost function: MAP, Optimization method: BFGS, d. Cost function: MAP, Optimization method: Newton'}
+g1 <- confusion_plot(test_classes, predict(mle_bfgs_r, Xtest_embedded))
+g2 <- confusion_plot(test_classes, predict(mle_nm_r, Xtest_embedded))
 
-g3 <- confusion_plot(test_classes, predict(map_bfgs_r, Xtest_embedded),'MAP-BFGS')
-g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded),'MAP-NEWTON')
-ggarrange(g1,g2,g3,g4,nrow=2,ncol=2)
+g3 <- confusion_plot(test_classes, predict(map_bfgs_r, Xtest_embedded))
+g4 <- confusion_plot(test_classes, predict(map_nm_r, Xtest_embedded))
+ggarrange(g1,g2,g3,g4,nrow=2,ncol=2,labels = 'auto')
 ```
 
 The histograms of each coordinate of the samples show RWMH is sampling sensibly.
@@ -777,7 +781,7 @@ trace2 <- ggplot(data = samplesdf, aes(x = iterations, y = X2)) + geom_line()
 trace3 <- ggplot(data = samplesdf, aes(x = iterations, y = X3)) + geom_line()
 grid.arrange(trace1, trace2, trace3, ncol = 1)
 ```
-```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center"}
+```{r, echo=FALSE, fig.height=4, fig.width=8, fig.align="center", fig.cap='Histograms of RWMH samples for each coordinate.'}
 hist1 <- ggplot(data = samplesdf, aes(x = X1, stat(density))) +
   geom_histogram(binwidth = 0.05, alpha = 0.5, fill = "turquoise1", color = "turquoise4") + 
   labs(x=TeX('$\\beta_0$'))
@@ -786,13 +790,14 @@ hist2 <- ggplot(data = samplesdf, aes(x = X2, stat(density))) +
   labs(x=TeX('$\\beta_1$'))
 hist3 <- ggplot(data = samplesdf, aes(x = X3, stat(density))) +
   geom_histogram(binwidth = 0.02, alpha = 0.5, fill = "turquoise1", color = "turquoise4") +
-  labs(x=TeX('$\\beta_2$'))
+  labs(x=TeX('$\\beta_2$'))+
+  theme(axis.title.x = element_blank())
 grid.arrange(hist1, hist2, hist3, ncol = 1)
 ```
 
 The next thing to do is to plot the decision boundary given by $\vbeta_{\text{MAP}}$ and the decision boundaries given by (some) of the samples from the posterior. 
 
-```{r, echo=FALSE, fig.align="center", fig.height=3, fig.width=6}
+```{r, echo=FALSE, fig.align="center", fig.height=3, fig.width=6, fig.cap='Logistic Regression decision boundary for reduced dataset.'}
 samples_to_select <- 200
 samples_subset <- samples[sample(1:nrow(samples), samples_to_select), ]
 # Calculate slope and intercept for those samples. Then calculate x2 from x1
@@ -822,7 +827,7 @@ We can see that Logistic Regression finds a decision boundary that does not refl
 ```{r, fig.align="center", echo=FALSE}
 # merge all predictions
 id <- seq(length(id_test))
-all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_map_nm,yhat_mle_bfgs,yhat_mle_nm)
+all_pred <- cbind(id, numeric_test_labels, pred_naive, pred_naive_pca,pred_svm,yhat_map_bfgs,yhat_mle_bfgs,predict(mle_bfgs_r, Xtest_embedded),predict(map_bfgs_r, Xtest_embedded))
 all_pred[all_pred == -1] <- 0
 all_pred %<>% as.data.frame()
 colnames(all_pred) <- c('id','actual','naive','naive_pca','SVM','map_bfgs','map_nm','mle_bfgs','mle_nm')
